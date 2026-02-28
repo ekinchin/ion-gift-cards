@@ -34,6 +34,23 @@ npm run db:migrate
 
 ## Запуск
 
+### Docker (рекомендуется)
+
+```bash
+# Создать .env с токеном бота
+echo "TELEGRAM_BOT_TOKEN=your_token" > .env
+
+# Запустить все сервисы
+docker compose up -d
+
+# Порядок запуска:
+# 1. postgres (healthcheck)
+# 2. migrations (накатывает схему и завершается)
+# 3. api + bot (запускаются после миграций)
+```
+
+### Локально
+
 ```bash
 # API сервер
 npm run dev
