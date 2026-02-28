@@ -1,7 +1,7 @@
-import { CardRepository } from '../repositories/CardRepository.ts';
-import { TransactionRepository } from '../repositories/TransactionRepository.ts';
-import { OperatorRepository } from '../repositories/OperatorRepository.ts';
-import { CardService } from './CardService.ts';
+import { CardRepository } from '../repositories/card.repository.ts';
+import { TransactionRepository } from '../repositories/transaction.repository.ts';
+import { OperatorRepository } from '../repositories/operator.repository.ts';
+import { CardService } from './card.service.ts';
 
 // Repositories
 export const cardRepository = new CardRepository();
