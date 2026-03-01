@@ -1,4 +1,3 @@
-import 'dotenv/config';
 import { Bot, Context, session } from 'grammy';
 import { cardService, operatorRepository } from '../services/index.ts';
 

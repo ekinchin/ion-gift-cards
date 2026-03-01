@@ -1,4 +1,3 @@
-import 'dotenv/config';
 import Fastify from 'fastify';
 import { registerRoutes } from './api/routes.ts';
 
