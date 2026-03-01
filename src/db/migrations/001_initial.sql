@@ -2,7 +2,7 @@
 CREATE TABLE IF NOT EXISTS operators (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     telegram_id BIGINT UNIQUE NOT NULL,
-    name VARCHAR(255) NOT NULL,
+    name TEXT NOT NULL,
     is_active BOOLEAN DEFAULT true,
     created_at TIMESTAMP DEFAULT NOW()
 );
@@ -10,9 +10,9 @@ CREATE TABLE IF NOT EXISTS operators (
 -- Таблица сертификатов
 CREATE TABLE IF NOT EXISTS cards (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    code VARCHAR(16) UNIQUE NOT NULL,
+    code TEXT UNIQUE NOT NULL,
     balance DECIMAL(10,2) DEFAULT 0,
-    initial_amount DECIMAL(10,2) NOT NULL,
+    initial_amount DECIMAL(10,2) NOT NULL DEFAULT 0,
     is_active BOOLEAN DEFAULT true,
     created_at TIMESTAMP DEFAULT NOW()
 );
@@ -21,11 +21,11 @@ CREATE TABLE IF NOT EXISTS cards (
 CREATE TABLE IF NOT EXISTS transactions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     card_id UUID REFERENCES cards(id) ON DELETE CASCADE,
-    type VARCHAR(10) NOT NULL CHECK (type IN ('CREATE', 'DEBIT', 'CREDIT')),
+    type TEXT NOT NULL CHECK (type IN ('CREATE', 'DEBIT', 'CREDIT')),
     amount DECIMAL(10,2) NOT NULL,
     balance_after DECIMAL(10,2) NOT NULL,
     description TEXT,
-    operator_id VARCHAR(64),
+    operator_id TEXT REFERENCES operators(id),
     created_at TIMESTAMP DEFAULT NOW()
 );
 
