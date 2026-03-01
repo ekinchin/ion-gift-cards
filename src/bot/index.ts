@@ -1,5 +1,6 @@
 import { Bot, Context, session } from 'grammy';
 import { cardService, operatorRepository } from '../services/index.ts';
+import { randomUUID } from 'node:crypto';
 
 const token = process.env.TELEGRAM_BOT_TOKEN;
 if (!token) {
@@ -33,7 +34,7 @@ bot.command('start', async (ctx) => {
       '/balance <код> - проверить баланс\n' +
       '/debit <код> <сумма> - списать\n' +
       '/credit <код> <сумма> - пополнить\n' +
-      '/create <код> <сумма> - создать карту\n' +
+      '/create <сумма> - создать карту\n' +
       '/history <код> - история операций'
     );
   } else {
@@ -122,11 +123,12 @@ bot.command('create', async (ctx) => {
     return;
   }
   const parts = ctx.match?.trim().split(/\s+/);
-  if (!parts || parts.length < 2) {
-    await ctx.reply('❌ Использование: /create <код> <начальная_сумма>');
+  if (!parts || parts.length < 1) {
+    await ctx.reply('❌ Использование: /create <начальная_сумма>');
     return;
   }
-  const [code, amountStr] = parts;
+  const amountStr = parts.at(0);
+  const code = randomUUID();
   const amount = parseFloat(amountStr);
   if (isNaN(amount) || amount <= 0) {
     await ctx.reply('❌ Некорректная сумма');
