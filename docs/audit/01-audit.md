@@ -1,226 +1,175 @@
-# Audit 01: Project Review
+# Audit 01: Project Review And Resolution Status
 
 Date: 2026-06-23
 
 ## Scope
 
-Reviewed the current `ion-gift-card` project structure, API routes, Telegram bot, services, repositories, database migration, Docker configuration, TypeScript configuration, and dependency state.
+The initial audit reviewed the `ion-gift-card` project structure, API routes, Telegram bot, application services, repositories, database migration, Docker configuration, TypeScript configuration, and dependency state.
 
-Commands run:
+This document is now an audit trail: it records the original findings and their current resolution status after the architecture refactoring merged into `main`.
+
+Current verification commands:
 
 ```bash
 npm run typecheck
-npm ls --depth=0
+npm test
 npm audit --omit=dev
 ```
 
-## Critical Findings
+Current expected result:
 
-### 1. Database migration is likely to fail
+- TypeScript check passes.
+- Test suite passes.
+- Dependency audit reports 0 vulnerabilities.
 
-`transactions.operator_id` is declared as `TEXT`, but it references `operators.id`, which is `UUID`.
+## Resolved Findings
 
-File: `src/db/migrations/001_initial.sql`
+### Database operator foreign key type
+
+Original finding: `transactions.operator_id` used `TEXT` while referencing `operators.id` of type `UUID`.
+
+Current status: resolved.
+
+Current schema:
 
 ```sql
-operator_id TEXT REFERENCES operators(id)
+operator_id UUID REFERENCES operators(id)
 ```
 
-PostgreSQL foreign keys require compatible column types. This can prevent migrations from completing, which also blocks the Docker startup flow because `api` and `bot` depend on successful migrations.
+### Operator transaction attribution
 
-Recommended fix:
+Original finding: the Telegram bot checked operators by `telegram_id`, but passed Telegram IDs into card operations.
 
-- Change `transactions.operator_id` to `UUID`.
-- Ensure application code passes `operators.id`, not Telegram IDs.
+Current status: resolved.
 
-### 2. Operator transaction attribution is wrong
+Current behavior:
 
-The bot checks operator permissions by `telegram_id`, but writes transactions with `String(ctx.from?.id)`.
+- Telegram bot resolves the active operator record.
+- Bot card mutations pass `operator.id`.
+- API card mutations resolve the active operator server-side before calling use cases.
 
-Affected files:
+### Non-atomic money operations
 
-- `src/bot/index.ts`
-- `src/services/card.service.ts`
-- `src/repositories/transaction.repository.ts`
+Original finding: debit and credit performed balance update and transaction insert as separate operations.
 
-This value is a Telegram user ID, not the UUID primary key from `operators.id`. After fixing the database type, transaction inserts will fail unless this is corrected.
+Current status: resolved.
 
-Recommended fix:
+Current behavior:
 
-- Replace boolean `isOperator()` with a function that returns the active operator record.
-- Pass `operator.id` to `createCard`, `debit`, and `credit`.
+- `createCard`, `debit`, and `credit` run inside `db.transaction(...)`.
+- `debit` and `credit` lock the card row before calculating the new balance.
+- Transaction history is written in the same database transaction as the balance update.
 
-### 3. Money operations are not atomic
+### Missing operator authorization for API mutations
 
-`debit` and `credit` perform these steps separately:
+Original finding: operator API routes trusted `operatorId` from request bodies.
 
-1. Read card balance.
-2. Calculate new balance in application code.
-3. Update card balance.
-4. Insert transaction history row.
+Current status: resolved for the current trusted-network model.
 
-Affected files:
+Current behavior:
 
-- `src/services/card.service.ts`
-- `src/repositories/card.repository.ts`
-- `src/repositories/transaction.repository.ts`
+- Mutating API routes require `x-operator-telegram-id`.
+- Server resolves the active operator.
+- Request bodies must not include `operatorId`.
 
-This creates several risks:
+Remaining note: `x-operator-telegram-id` is a minimal internal mechanism, not strong public API authentication. Use a stronger auth mechanism before exposing the API outside a trusted network.
 
-- Concurrent debits can overwrite each other.
-- A card can be overdrawn under race conditions.
-- Balance and transaction history can diverge if one query succeeds and the next fails.
+### Missing API runtime validation
 
-Recommended fix:
+Original finding: API routes cast `request.body` and `request.params` directly to TypeScript types.
 
-- Wrap balance update and transaction insert in a database transaction.
-- Lock the card row with `SELECT ... FOR UPDATE`, or use an atomic conditional update.
-- Keep insufficient-balance checks inside the same transaction.
+Current status: resolved.
 
-### 4. Operator API endpoints have no authorization
+Current behavior:
 
-The API exposes operator-level actions without authentication or authorization:
+- API validation uses Zod schemas in `src/api/schemas.ts`.
+- Controller-level request types use `z.infer` from those schemas.
+- Invalid input returns `400` with `VALIDATION_ERROR`.
 
-- `POST /api/cards`
-- `POST /api/cards/:code/debit`
-- `POST /api/cards/:code/credit`
+### TypeScript check failures
 
-Affected file: `src/api/routes.ts`
+Original finding: the Telegram bot failed `npm run typecheck`.
 
-The API trusts `operatorId` from the request body. Any caller can create cards, debit balances, or credit balances.
+Current status: resolved.
 
-Recommended fix:
+Current behavior:
 
-- Add authentication for operator endpoints.
-- Resolve the operator identity on the server side.
-- Do not trust `operatorId` from the request body.
+- grammY session context is typed with `SessionFlavor<SessionData>`.
+- `/create` amount parsing no longer passes `string | undefined` into `parseFloat`.
 
-### 5. API input validation is missing
+### Vulnerable dependencies
 
-The API casts `request.body` and `request.params` directly to TypeScript types without runtime validation.
+Original finding: dependency audit reported high severity vulnerabilities.
 
-Affected file: `src/api/routes.ts`
+Current status: resolved.
 
-Examples:
+Current behavior:
 
-- Negative debit amount can increase a balance.
-- Negative credit amount can decrease a balance.
-- `NaN`, strings, missing fields, or invalid codes can reach service logic.
+- `npm audit --omit=dev` reports 0 vulnerabilities.
 
-Recommended fix:
+### Missing tests
 
-- Add Fastify JSON schemas for params and body.
-- Validate `amount > 0`.
-- Validate card code format and required fields.
-- Return `400` for invalid input before calling services.
+Original finding: there were no project tests.
 
-## Build And Dependency Findings
+Current status: partially resolved.
 
-### TypeScript check fails
+Current tests:
 
-Command:
+- `test/api.auth.test.ts`
+- `test/api.schemas.test.ts`
+- `test/card.use-cases.test.ts`
 
-```bash
-npm run typecheck
-```
+Remaining test gap:
 
-Result:
+- Add PostgreSQL integration tests for migrations and real card operations.
+- Add Fastify route tests with `app.inject`.
+- Add concurrency tests for parallel debit attempts.
 
-```text
-src/bot/index.ts(19,9): error TS2345: Argument of type 'MiddlewareFn<Context & SessionFlavor<SessionData>>' is not assignable to parameter of type 'Middleware<Context>'.
-src/bot/index.ts(132,29): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
-```
+### Documentation/runtime mismatch
 
-Recommended fix:
+Original finding: docs said Node.js 22+ while `package.json` required Node.js 24.x.
 
-- Type the bot context with `SessionFlavor<SessionData>`.
-- Avoid `parts.at(0)` where TypeScript cannot prove a string exists, or guard it explicitly.
+Current status: resolved.
 
-### Dependency audit reports high severity vulnerabilities
+Current docs and package metadata target Node.js 24.
 
-Command:
+## Remaining Risks
 
-```bash
-npm audit --omit=dev
-```
+### Money representation
 
-Result:
+Money is still represented as JavaScript `number` in application code.
 
-```text
-3 high severity vulnerabilities
+Current mitigation:
 
-fast-uri <=3.1.1
-fastify <=5.8.4
-lodash <=4.17.23
-```
+- Zod validates positive request amounts.
+- Use cases reject non-finite and non-positive amounts.
+- Database constraints reject negative balances and non-positive transaction amounts.
 
-Recommended fix:
+Recommended future improvement:
 
-```bash
-npm audit fix
-```
+- Store money as integer minor units, for example kopecks/cents, or introduce a dedicated money value object.
 
-Then rerun:
+### Migration history
 
-```bash
-npm run typecheck
-npm audit --omit=dev
-```
+The migration runner still executes `.sql` files directly and does not track applied migrations.
 
-## Medium Risk Findings
+Current mitigation:
 
-### No project tests
+- The initial migration is idempotent enough for current local/Docker setup through `CREATE TABLE IF NOT EXISTS` and `CREATE INDEX IF NOT EXISTS`.
 
-No application test files were found. Only test files inside `node_modules` matched the search.
-
-Recommended test coverage:
-
-- Migration applies successfully to PostgreSQL.
-- Card creation creates both card and transaction.
-- Debit decreases balance and writes history.
-- Credit increases balance and writes history.
-- Debit rejects insufficient funds.
-- Concurrent debit cannot overdraw or lose updates.
-- Unauthorized API requests cannot mutate cards.
-
-### Money is represented as JavaScript `number`
-
-Database values use `DECIMAL(10,2)`, but service logic converts balances to JavaScript `number`.
-
-Affected file: `src/services/card.service.ts`
-
-This can introduce rounding issues over time.
-
-Recommended fix:
-
-- Store money as integer minor units, for example kopecks/cents, or use a decimal library consistently.
-
-### Migration runner has no migration history
-
-The migration runner executes every `.sql` file each time and does not track applied migrations.
-
-Affected file: `src/db/migrations/run.ts`
-
-Current migration uses `IF NOT EXISTS`, but future schema changes will be hard to manage safely.
-
-Recommended fix:
+Recommended future improvement:
 
 - Use Knex migrations, or add a migration history table.
 
-### Documentation and runtime version mismatch
+### API authentication strength
 
-`README.md` says Node.js 22+, but `package.json` requires Node.js 24.x.
+The current API operator resolver uses `x-operator-telegram-id`.
 
-Recommended fix:
+Current mitigation:
 
-- Align documentation, Docker image, and `package.json`.
+- The server resolves the operator record and no longer trusts body-provided `operatorId`.
 
-## Recommended Fix Order
+Recommended future improvement:
 
-1. Fix database schema for `transactions.operator_id` and operator ID flow.
-2. Make `createCard`, `debit`, and `credit` atomic database transactions.
-3. Add API authentication and runtime validation.
-4. Fix TypeScript errors.
-5. Update vulnerable dependencies.
-6. Add integration tests around database, card operations, and authorization.
+- Replace the header-based resolver with token-based or session-based authentication before public deployment.
 

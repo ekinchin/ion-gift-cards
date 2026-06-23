@@ -9,6 +9,7 @@
 | Runtime | Node.js 24 с --experimental-strip-types |
 | Язык | TypeScript |
 | API | Fastify |
+| Валидация | Zod |
 | БД | PostgreSQL |
 | Query Builder | Knex.js (Repository pattern) |
 | Telegram Bot | grammY |
@@ -23,7 +24,7 @@ src/
 ├── api/
 │   ├── auth.ts             # Разрешение оператора
 │   ├── routes.ts           # API роуты
-│   └── schemas.ts          # Runtime validation schemas
+│   └── schemas.ts          # Zod-схемы + z.infer типы
 ├── bot/
 │   └── index.ts            # Telegram бот
 ├── db/
@@ -32,9 +33,9 @@ src/
 │       ├── 001_initial.sql # SQL миграции
 │       └── run.ts          # Скрипт миграций
 ├── repositories/           # Repository pattern + Knex
-│   ├── CardRepository.ts
-│   ├── TransactionRepository.ts
-│   └── OperatorRepository.ts
+│   ├── card.repository.ts
+│   ├── transaction.repository.ts
+│   └── operator.repository.ts
 ├── services/
 │   ├── card.service.ts     # Совместимый экспорт
 │   └── index.ts            # Composition root
@@ -52,6 +53,8 @@ src/
 - ✅ История транзакций
 - ✅ Операторские API-запросы разрешают оператора на сервере
 - ✅ Мутации карты выполняются в транзакции БД
+- ✅ API валидирует входные данные через Zod
+- ✅ Типы аргументов API handlers выводятся из Zod-схем через `z.infer`
 
 ### Миграции
 
@@ -65,4 +68,12 @@ cp .env.example .env
 npm run db:migrate
 npm run dev      # API
 npm run bot      # Telegram Bot
+```
+
+### Проверки
+
+```bash
+npm run typecheck
+npm test
+npm audit --omit=dev
 ```

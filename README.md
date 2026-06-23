@@ -15,6 +15,7 @@
 - **Runtime**: Node.js 24 с `--experimental-strip-types`
 - **Язык**: TypeScript
 - **API**: Fastify
+- **Валидация**: Zod
 - **БД**: PostgreSQL + Knex.js
 - **Telegram Bot**: grammY
 
@@ -93,7 +94,7 @@ src/
 ├── api/
 │   ├── auth.ts             # Разрешение оператора для API
 │   ├── routes.ts           # API роуты
-│   └── schemas.ts          # Runtime validation schemas
+│   └── schemas.ts          # Zod-схемы и выводимые из них типы
 ├── bot/
 │   └── index.ts            # Telegram бот
 ├── db/
@@ -111,6 +112,14 @@ src/
 ├── types/
 │   └── index.ts
 └── index.ts                # Точка входа API
+```
+
+## Проверки
+
+```bash
+npm run typecheck
+npm test
+npm audit --omit=dev
 ```
 
 ## Добавление оператора
