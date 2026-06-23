@@ -1,6 +1,7 @@
-import { Bot, Context, InlineKeyboard, session, type SessionFlavor } from 'grammy';
+import { Bot, Context, InlineKeyboard, Keyboard, session, type SessionFlavor } from 'grammy';
 import { cardService, operatorRepository } from '../services/index.ts';
 import { randomUUID } from 'node:crypto';
+import { menuButtonLabels, parseMenuButton } from './menu.ts';
 import {
   buildScanWebAppUrl,
   parseScanWebAppData,
@@ -67,6 +68,20 @@ function scanKeyboard(params: ScanWebAppParams = { action: 'balance' }) {
   return new InlineKeyboard().webApp(scanButtonText(params.action), buildScanWebAppUrl(webAppUrl, params));
 }
 
+function mainMenuKeyboard() {
+  return new Keyboard()
+    .text(menuButtonLabels.balance)
+    .text(menuButtonLabels.history)
+    .row()
+    .text(menuButtonLabels.scan)
+    .row()
+    .text(menuButtonLabels.debit)
+    .text(menuButtonLabels.credit)
+    .row()
+    .text(menuButtonLabels.create)
+    .resized();
+}
+
 async function replyScanPrompt(ctx: MyContext, message: string, params: ScanWebAppParams, fallback: string) {
   const keyboard = scanKeyboard(params);
   if (!keyboard) {
@@ -106,26 +121,71 @@ async function replyHistory(ctx: MyContext, code: string) {
   }
 }
 
+async function handleMenuButton(ctx: MyContext, text: string) {
+  const action = parseMenuButton(text);
+  if (!action) {
+    return false;
+  }
+
+  if (action === 'balance') {
+    await replyScanPrompt(
+      ctx,
+      'Отсканируйте QR-код карты для проверки баланса:',
+      { action: 'balance' },
+      'Укажите код вручную: /balance <код>'
+    );
+    return true;
+  }
+
+  if (action === 'history') {
+    await replyScanPrompt(
+      ctx,
+      'Отсканируйте QR-код карты для просмотра истории:',
+      { action: 'history' },
+      'Укажите код вручную: /history <код>'
+    );
+    return true;
+  }
+
+  if (action === 'scan') {
+    await replyScanPrompt(
+      ctx,
+      'Откройте сканер QR-кода:',
+      { action: 'balance' },
+      'Укажите код вручную: /balance <код>'
+    );
+    return true;
+  }
+
+  if (action === 'debit') {
+    await ctx.reply('Введите сумму для списания: /debit <сумма> [описание]');
+    return true;
+  }
+
+  if (action === 'credit') {
+    await ctx.reply('Введите сумму для пополнения: /credit <сумма> [описание]');
+    return true;
+  }
+
+  await ctx.reply('Введите начальную сумму: /create <сумма>');
+  return true;
+}
+
 // Команда /start
 bot.command('start', async (ctx) => {
   const operator = await getOperator(ctx.from?.id || 0);
   if (operator) {
     await ctx.reply(
       '👋 Добро пожаловать, оператор!\n\n' +
-      'Команды:\n' +
-      '/balance <код> - проверить баланс\n' +
-      '/debit <код> <сумма> - списать\n' +
-      '/credit <код> <сумма> - пополнить\n' +
-      '/create <сумма> - создать карту\n' +
-      '/history <код> - история операций',
-      { reply_markup: scanKeyboard() }
+      'Выберите действие на клавиатуре ниже.',
+      { reply_markup: mainMenuKeyboard() }
     );
   } else {
     await ctx.reply(
       '👋 Привет!\n\n' +
       'Отправьте код вашего сертификата, чтобы узнать баланс.\n' +
-      'Или используйте команду: /balance <код>',
-      { reply_markup: scanKeyboard() }
+      'Или выберите действие на клавиатуре ниже.',
+      { reply_markup: mainMenuKeyboard() }
     );
   }
 });
@@ -321,6 +381,8 @@ bot.on('message:web_app_data', async (ctx) => {
 bot.on('message:text', async (ctx) => {
   const code = ctx.message.text.trim();
   if (code.startsWith('/')) return;
+  if (await handleMenuButton(ctx, code)) return;
+
   try {
     const { balance } = await cardService.getBalance(code);
     await ctx.reply(`💳 Карта: ${code}\n💰 Баланс: ${balance} ₽`);
