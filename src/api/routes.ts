@@ -3,6 +3,7 @@ import type { ZodError } from 'zod';
 import { AppError } from '../application/errors.ts';
 import { cardService } from '../services/index.ts';
 import { requireOperator } from './auth.ts';
+import { qrMiniAppHtml } from './qr-mini-app.html.ts';
 import {
   type CardCodeParams,
   type CreateCardBody,
@@ -33,6 +34,10 @@ function sendValidationError(reply: FastifyReply, error: ZodError) {
 }
 
 export async function registerRoutes(app: FastifyInstance) {
+  app.get('/qr', async (_request, reply) => {
+    return reply.type('text/html; charset=utf-8').send(qrMiniAppHtml);
+  });
+
   // Проверка баланса (для гостей)
   app.get<{ Params: CardCodeParams }>('/api/cards/:code/balance', async (request, reply) => {
     const params = cardCodeParamsSchema.safeParse(request.params);

@@ -1,4 +1,4 @@
-import { Bot, Context, session, type SessionFlavor } from 'grammy';
+import { Bot, Context, InlineKeyboard, session, type SessionFlavor } from 'grammy';
 import { cardService, operatorRepository } from '../services/index.ts';
 import { randomUUID } from 'node:crypto';
 
@@ -6,6 +6,8 @@ const token = process.env.TELEGRAM_BOT_TOKEN;
 if (!token) {
   throw new Error('TELEGRAM_BOT_TOKEN is required');
 }
+
+const webAppUrl = process.env.WEB_APP_URL;
 
 interface SessionData {
   action?: 'debit' | 'credit' | 'balance' | 'create';
@@ -18,9 +20,27 @@ const bot = new Bot<MyContext>(token);
 
 bot.use(session({ initial: (): SessionData => ({}) }));
 
+const botCommands = [
+  { command: 'start', description: 'Начало работы' },
+  { command: 'scan', description: 'Открыть QR-сканер' },
+  { command: 'balance', description: 'Проверить баланс' },
+  { command: 'debit', description: 'Списать сумму' },
+  { command: 'credit', description: 'Пополнить баланс' },
+  { command: 'create', description: 'Создать карту' },
+  { command: 'history', description: 'История операций' },
+];
+
 // Проверка оператора
 async function getOperator(telegramId: number) {
   return operatorRepository.findByTelegramId(telegramId);
+}
+
+function scanKeyboard() {
+  if (!webAppUrl) {
+    return undefined;
+  }
+
+  return new InlineKeyboard().webApp('Сканировать QR', webAppUrl);
 }
 
 // Команда /start
@@ -34,15 +54,27 @@ bot.command('start', async (ctx) => {
       '/debit <код> <сумма> - списать\n' +
       '/credit <код> <сумма> - пополнить\n' +
       '/create <сумма> - создать карту\n' +
-      '/history <код> - история операций'
+      '/history <код> - история операций',
+      { reply_markup: scanKeyboard() }
     );
   } else {
     await ctx.reply(
       '👋 Привет!\n\n' +
       'Отправьте код вашего сертификата, чтобы узнать баланс.\n' +
-      'Или используйте команду: /balance <код>'
+      'Или используйте команду: /balance <код>',
+      { reply_markup: scanKeyboard() }
     );
   }
+});
+
+bot.command('scan', async (ctx) => {
+  const keyboard = scanKeyboard();
+  if (!keyboard) {
+    await ctx.reply('❌ Сканирование QR не настроено');
+    return;
+  }
+
+  await ctx.reply('Откройте сканер QR-кода:', { reply_markup: keyboard });
 });
 
 // Проверка баланса
@@ -183,5 +215,17 @@ bot.on('message:text', async (ctx) => {
 });
 
 // Запуск бота
+await bot.api.setMyCommands(botCommands);
+
+if (webAppUrl) {
+  await bot.api.setChatMenuButton({
+    menu_button: {
+      type: 'web_app',
+      text: 'Сканировать QR',
+      web_app: { url: webAppUrl },
+    },
+  });
+}
+
 bot.start();
 console.log('🤖 Bot started!');
