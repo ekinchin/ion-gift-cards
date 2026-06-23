@@ -1,6 +1,7 @@
 import type { FastifyInstance, FastifyReply } from 'fastify';
 import { AppError } from '../application/errors.ts';
 import { cardService } from '../services/index.ts';
+import { requireOperator } from './auth.ts';
 import {
   cardCodeParamsSchema,
   createCardBodySchema,
@@ -41,13 +42,17 @@ export async function registerRoutes(app: FastifyInstance) {
       body: createCardBodySchema,
     },
   }, async (request, reply) => {
-    const { code, amount, operatorId } = request.body as {
+    const operator = await requireOperator(request);
+    if (!operator) {
+      return reply.status(403).send({ error: 'Forbidden', code: 'FORBIDDEN' });
+    }
+
+    const { code, amount } = request.body as {
       code: string;
       amount: number;
-      operatorId?: string;
     };
     try {
-      const card = await cardService.createCard(code, amount, operatorId);
+      const card = await cardService.createCard(code, amount, operator.id);
       return reply.status(201).send(card);
     } catch (error) {
       return sendError(reply, error);
@@ -61,14 +66,18 @@ export async function registerRoutes(app: FastifyInstance) {
       body: mutateCardBodySchema,
     },
   }, async (request, reply) => {
+    const operator = await requireOperator(request);
+    if (!operator) {
+      return reply.status(403).send({ error: 'Forbidden', code: 'FORBIDDEN' });
+    }
+
     const { code } = request.params as { code: string };
-    const { amount, operatorId, description } = request.body as {
+    const { amount, description } = request.body as {
       amount: number;
-      operatorId: string;
       description?: string;
     };
     try {
-      const card = await cardService.debit(code, amount, operatorId, description);
+      const card = await cardService.debit(code, amount, operator.id, description);
       return { code, balance: card.balance };
     } catch (error) {
       return sendError(reply, error);
@@ -82,14 +91,18 @@ export async function registerRoutes(app: FastifyInstance) {
       body: mutateCardBodySchema,
     },
   }, async (request, reply) => {
+    const operator = await requireOperator(request);
+    if (!operator) {
+      return reply.status(403).send({ error: 'Forbidden', code: 'FORBIDDEN' });
+    }
+
     const { code } = request.params as { code: string };
-    const { amount, operatorId, description } = request.body as {
+    const { amount, description } = request.body as {
       amount: number;
-      operatorId: string;
       description?: string;
     };
     try {
-      const card = await cardService.credit(code, amount, operatorId, description);
+      const card = await cardService.credit(code, amount, operator.id, description);
       return { code, balance: card.balance };
     } catch (error) {
       return sendError(reply, error);
