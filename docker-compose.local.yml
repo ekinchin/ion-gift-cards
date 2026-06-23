@@ -1,0 +1,8 @@
+services:
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    command: tunnel --url http://api:3000
+    depends_on:
+      - api
+    networks:
+      - app_network

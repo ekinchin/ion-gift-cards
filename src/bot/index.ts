@@ -1,6 +1,12 @@
 import { Bot, Context, InlineKeyboard, session, type SessionFlavor } from 'grammy';
 import { cardService, operatorRepository } from '../services/index.ts';
 import { randomUUID } from 'node:crypto';
+import {
+  buildScanWebAppUrl,
+  parseScanWebAppData,
+  type ScanAction,
+  type ScanWebAppParams,
+} from './scan-web-app.ts';
 
 const token = process.env.TELEGRAM_BOT_TOKEN;
 if (!token) {
@@ -35,12 +41,69 @@ async function getOperator(telegramId: number) {
   return operatorRepository.findByTelegramId(telegramId);
 }
 
-function scanKeyboard() {
+function parsePositiveAmount(value: string) {
+  const amount = Number(value);
+  return Number.isFinite(amount) && amount > 0 ? amount : null;
+}
+
+function scanButtonText(action: ScanAction) {
+  switch (action) {
+    case 'history':
+      return 'Сканировать QR для истории';
+    case 'debit':
+      return 'Сканировать QR для списания';
+    case 'credit':
+      return 'Сканировать QR для пополнения';
+    case 'balance':
+      return 'Сканировать QR для баланса';
+  }
+}
+
+function scanKeyboard(params: ScanWebAppParams = { action: 'balance' }) {
   if (!webAppUrl) {
     return undefined;
   }
 
-  return new InlineKeyboard().webApp('Сканировать QR', webAppUrl);
+  return new InlineKeyboard().webApp(scanButtonText(params.action), buildScanWebAppUrl(webAppUrl, params));
+}
+
+async function replyScanPrompt(ctx: MyContext, message: string, params: ScanWebAppParams, fallback: string) {
+  const keyboard = scanKeyboard(params);
+  if (!keyboard) {
+    await ctx.reply(`❌ Сканирование QR не настроено. ${fallback}`);
+    return;
+  }
+
+  await ctx.reply(message, { reply_markup: keyboard });
+}
+
+async function replyBalance(ctx: MyContext, code: string) {
+  try {
+    const { balance } = await cardService.getBalance(code);
+    await ctx.reply(`💳 Карта: ${code}\n💰 Баланс: ${balance} ₽`);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Ошибка';
+    await ctx.reply(`❌ ${message}`);
+  }
+}
+
+async function replyHistory(ctx: MyContext, code: string) {
+  try {
+    const history = await cardService.getHistory(code);
+    if (history.length === 0) {
+      await ctx.reply(`💳 Карта: ${code}\n📋 История пуста`);
+      return;
+    }
+    const lines = history.slice(0, 10).map((tx) => {
+      const sign = tx.type === 'DEBIT' ? '-' : '+';
+      const emoji = tx.type === 'DEBIT' ? '🔴' : '🟢';
+      return `${emoji} ${sign}${tx.amount} ₽ → ${tx.balance_after} ₽`;
+    });
+    await ctx.reply(`💳 Карта: ${code}\n📋 Последние операции:\n\n${lines.join('\n')}`);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Ошибка';
+    await ctx.reply(`❌ ${message}`);
+  }
 }
 
 // Команда /start
@@ -68,29 +131,27 @@ bot.command('start', async (ctx) => {
 });
 
 bot.command('scan', async (ctx) => {
-  const keyboard = scanKeyboard();
-  if (!keyboard) {
-    await ctx.reply('❌ Сканирование QR не настроено');
-    return;
-  }
-
-  await ctx.reply('Откройте сканер QR-кода:', { reply_markup: keyboard });
+  await replyScanPrompt(
+    ctx,
+    'Откройте сканер QR-кода:',
+    { action: 'balance' },
+    'Укажите код вручную: /balance <код>'
+  );
 });
 
 // Проверка баланса
 bot.command('balance', async (ctx) => {
   const code = ctx.match?.trim();
   if (!code) {
-    await ctx.reply('❌ Укажите код карты: /balance <код>');
+    await replyScanPrompt(
+      ctx,
+      'Отсканируйте QR-код карты для проверки баланса:',
+      { action: 'balance' },
+      'Укажите код вручную: /balance <код>'
+    );
     return;
   }
-  try {
-    const { balance } = await cardService.getBalance(code);
-    await ctx.reply(`💳 Карта: ${code}\n💰 Баланс: ${balance} ₽`);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Ошибка';
-    await ctx.reply(`❌ ${message}`);
-  }
+  await replyBalance(ctx, code);
 });
 
 // Списание (только для операторов)
@@ -101,24 +162,37 @@ bot.command('debit', async (ctx) => {
     return;
   }
   const parts = ctx.match?.trim().split(/\s+/);
-  if (!parts || parts.length < 2) {
-    await ctx.reply('❌ Использование: /debit <код> <сумма> [описание]');
+  if (!parts || parts.length < 1) {
+    await ctx.reply('❌ Использование: /debit <код> <сумма> [описание] или /debit <сумма> [описание] для сканирования QR');
     return;
   }
-  const [code, amountStr, ...descParts] = parts;
-  const amount = parseFloat(amountStr);
-  if (isNaN(amount) || amount <= 0) {
+
+  const directAmount = parts.length >= 2 ? parsePositiveAmount(parts[1]) : null;
+  if (parts.length >= 2 && directAmount !== null) {
+    const [code, _amountStr, ...descParts] = parts;
+    const description = descParts.join(' ') || undefined;
+    try {
+      const card = await cardService.debit(code, directAmount, operator.id, description);
+      await ctx.reply(`✅ Списано: ${directAmount} ₽\n💳 Карта: ${code}\n💰 Остаток: ${card.balance} ₽`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Ошибка';
+      await ctx.reply(`❌ ${message}`);
+    }
+    return;
+  }
+
+  const scanAmount = parsePositiveAmount(parts[0]);
+  if (scanAmount === null) {
     await ctx.reply('❌ Некорректная сумма');
     return;
   }
-  const description = descParts.join(' ') || undefined;
-  try {
-    const card = await cardService.debit(code, amount, operator.id, description);
-    await ctx.reply(`✅ Списано: ${amount} ₽\n💳 Карта: ${code}\n💰 Остаток: ${card.balance} ₽`);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Ошибка';
-    await ctx.reply(`❌ ${message}`);
-  }
+
+  await replyScanPrompt(
+    ctx,
+    `Отсканируйте QR-код карты для списания ${scanAmount} ₽:`,
+    { action: 'debit', amount: scanAmount, description: parts.slice(1).join(' ') || undefined },
+    'Укажите код вручную: /debit <код> <сумма> [описание]'
+  );
 });
 
 // Пополнение (только для операторов)
@@ -129,24 +203,37 @@ bot.command('credit', async (ctx) => {
     return;
   }
   const parts = ctx.match?.trim().split(/\s+/);
-  if (!parts || parts.length < 2) {
-    await ctx.reply('❌ Использование: /credit <код> <сумма> [описание]');
+  if (!parts || parts.length < 1) {
+    await ctx.reply('❌ Использование: /credit <код> <сумма> [описание] или /credit <сумма> [описание] для сканирования QR');
     return;
   }
-  const [code, amountStr, ...descParts] = parts;
-  const amount = parseFloat(amountStr);
-  if (isNaN(amount) || amount <= 0) {
+
+  const directAmount = parts.length >= 2 ? parsePositiveAmount(parts[1]) : null;
+  if (parts.length >= 2 && directAmount !== null) {
+    const [code, _amountStr, ...descParts] = parts;
+    const description = descParts.join(' ') || undefined;
+    try {
+      const card = await cardService.credit(code, directAmount, operator.id, description);
+      await ctx.reply(`✅ Пополнено: ${directAmount} ₽\n💳 Карта: ${code}\n💰 Баланс: ${card.balance} ₽`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Ошибка';
+      await ctx.reply(`❌ ${message}`);
+    }
+    return;
+  }
+
+  const scanAmount = parsePositiveAmount(parts[0]);
+  if (scanAmount === null) {
     await ctx.reply('❌ Некорректная сумма');
     return;
   }
-  const description = descParts.join(' ') || undefined;
-  try {
-    const card = await cardService.credit(code, amount, operator.id, description);
-    await ctx.reply(`✅ Пополнено: ${amount} ₽\n💳 Карта: ${code}\n💰 Баланс: ${card.balance} ₽`);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Ошибка';
-    await ctx.reply(`❌ ${message}`);
-  }
+
+  await replyScanPrompt(
+    ctx,
+    `Отсканируйте QR-код карты для пополнения на ${scanAmount} ₽:`,
+    { action: 'credit', amount: scanAmount, description: parts.slice(1).join(' ') || undefined },
+    'Укажите код вручную: /credit <код> <сумма> [описание]'
+  );
 });
 
 // Создание карты (только для операторов)
@@ -181,21 +268,49 @@ bot.command('create', async (ctx) => {
 bot.command('history', async (ctx) => {
   const code = ctx.match?.trim();
   if (!code) {
-    await ctx.reply('❌ Укажите код карты: /history <код>');
+    await replyScanPrompt(
+      ctx,
+      'Отсканируйте QR-код карты для просмотра истории:',
+      { action: 'history' },
+      'Укажите код вручную: /history <код>'
+    );
     return;
   }
+  await replyHistory(ctx, code);
+});
+
+bot.on('message:web_app_data', async (ctx) => {
+  const payload = parseScanWebAppData(ctx.message.web_app_data.data);
+  if (!payload) {
+    await ctx.reply('❌ Не удалось прочитать данные сканирования');
+    return;
+  }
+
+  if (payload.action === 'balance') {
+    await replyBalance(ctx, payload.code);
+    return;
+  }
+
+  if (payload.action === 'history') {
+    await replyHistory(ctx, payload.code);
+    return;
+  }
+
+  const operator = await getOperator(ctx.from?.id || 0);
+  if (!operator) {
+    await ctx.reply('❌ У вас нет прав для этой операции');
+    return;
+  }
+
   try {
-    const history = await cardService.getHistory(code);
-    if (history.length === 0) {
-      await ctx.reply(`💳 Карта: ${code}\n📋 История пуста`);
+    if (payload.action === 'debit') {
+      const card = await cardService.debit(payload.code, payload.amount!, operator.id, payload.description);
+      await ctx.reply(`✅ Списано: ${payload.amount} ₽\n💳 Карта: ${payload.code}\n💰 Остаток: ${card.balance} ₽`);
       return;
     }
-    const lines = history.slice(0, 10).map((tx) => {
-      const sign = tx.type === 'DEBIT' ? '-' : '+';
-      const emoji = tx.type === 'DEBIT' ? '🔴' : '🟢';
-      return `${emoji} ${sign}${tx.amount} ₽ → ${tx.balance_after} ₽`;
-    });
-    await ctx.reply(`💳 Карта: ${code}\n📋 Последние операции:\n\n${lines.join('\n')}`);
+
+    const card = await cardService.credit(payload.code, payload.amount!, operator.id, payload.description);
+    await ctx.reply(`✅ Пополнено: ${payload.amount} ₽\n💳 Карта: ${payload.code}\n💰 Баланс: ${card.balance} ₽`);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Ошибка';
     await ctx.reply(`❌ ${message}`);

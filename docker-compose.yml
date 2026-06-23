@@ -64,6 +64,7 @@ services:
       DB_PASSWORD: postgres
       DB_NAME: ion_gift_card
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      WEB_APP_URL: ${WEB_APP_URL:-}
     depends_on:
       migrations:
         condition: service_completed_successfully

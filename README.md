@@ -50,6 +50,35 @@ docker compose up -d
 # 3. api + bot (запускаются после миграций)
 ```
 
+### Docker + локальный QR-сканер
+
+Для проверки Telegram Mini App на локальной машине нужен публичный HTTPS URL. Локальный override `docker-compose.local.yml` поднимает `cloudflared` tunnel до API-сервиса.
+
+```bash
+# 1. Запустить API, БД и tunnel
+docker compose -f docker-compose.yml -f docker-compose.local.yml up api tunnel
+```
+
+В логах `tunnel` найдите URL вида:
+
+```text
+https://example.trycloudflare.com
+```
+
+Добавьте его в `.env` с путем `/qr`:
+
+```env
+WEB_APP_URL=https://example.trycloudflare.com/qr
+```
+
+После этого запустите или перезапустите бота:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.local.yml up -d bot
+```
+
+Если URL туннеля изменился, обновите `WEB_APP_URL` и перезапустите `bot`.
+
 ### Локально
 
 ```bash
@@ -86,10 +115,14 @@ WEB_APP_URL=https://your-domain.example/qr npm run bot
 - `/start` - Начало работы
 - `/scan` - Открыть QR-сканер
 - `/balance <код>` - Проверить баланс
+- `/balance` - Сканировать QR-код и проверить баланс
 - `/debit <код> <сумма>` - Списать (только для операторов)
+- `/debit <сумма>` - Сканировать QR-код и списать (только для операторов)
 - `/credit <код> <сумма>` - Пополнить (только для операторов)
+- `/credit <сумма>` - Сканировать QR-код и пополнить (только для операторов)
 - `/create <код> <сумма>` - Создать карту (только для операторов)
 - `/history <код>` - История операций
+- `/history` - Сканировать QR-код и показать историю
 
 Гости могут просто отправить код карты текстом для проверки баланса или открыть QR-сканер, если настроен `WEB_APP_URL`.
 

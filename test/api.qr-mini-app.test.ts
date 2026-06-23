@@ -7,6 +7,8 @@ import { qrMiniAppHtml } from '../src/api/qr-mini-app.html.ts';
 test('exports Telegram QR scanner Mini App HTML template', () => {
   assert.match(qrMiniAppHtml, /^<!doctype html>/);
   assert.match(qrMiniAppHtml, /Telegram\.WebApp\.showScanQrPopup/);
+  assert.match(qrMiniAppHtml, /new URLSearchParams\(window\.location\.search\)/);
+  assert.match(qrMiniAppHtml, /tg\.sendData\(JSON\.stringify\(payload\)\)/);
 });
 
 test('serves Telegram QR scanner Mini App page', async () => {

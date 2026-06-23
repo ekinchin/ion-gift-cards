@@ -68,6 +68,10 @@ export const qrMiniAppHtml = `<!doctype html>
     const tg = window.Telegram?.WebApp;
     const button = document.getElementById('scan-button');
     const result = document.getElementById('result');
+    const params = new URLSearchParams(window.location.search);
+    const action = params.get('action');
+    const amount = Number(params.get('amount'));
+    const description = params.get('description') || undefined;
 
     function show(message) {
       result.hidden = false;
@@ -87,6 +91,24 @@ export const qrMiniAppHtml = `<!doctype html>
       show('Карта: ' + body.code + '\\nБаланс: ' + body.balance + ' ₽');
     }
 
+    function sendCodeToBot(code) {
+      if (!tg?.sendData || !action) {
+        return false;
+      }
+
+      const payload = { action, code };
+      if (Number.isFinite(amount) && amount > 0) {
+        payload.amount = amount;
+      }
+      if (description) {
+        payload.description = description;
+      }
+
+      tg.sendData(JSON.stringify(payload));
+      tg.close();
+      return true;
+    }
+
     function scan() {
       if (!window.Telegram?.WebApp?.showScanQrPopup) {
         show('QR-сканер доступен только внутри Telegram.');
@@ -95,7 +117,9 @@ export const qrMiniAppHtml = `<!doctype html>
 
       window.Telegram.WebApp.showScanQrPopup({ text: 'Наведите камеру на QR-код сертификата' }, (code) => {
         window.Telegram.WebApp.closeScanQrPopup();
-        loadBalance(code);
+        if (!sendCodeToBot(code)) {
+          loadBalance(code);
+        }
         return true;
       });
     }
