@@ -1,6 +1,11 @@
 import { CardRepository } from '../repositories/card.repository.ts';
 import { TransactionRepository } from '../repositories/transaction.repository.ts';
 import type { Card, Transaction } from '../types/index.ts';
+import {
+  CardNotFoundError,
+  DuplicateCardError,
+  InsufficientBalanceError,
+} from '../application/errors.ts';
 
 export class CardService {
   #cardRepo: CardRepository;
@@ -17,7 +22,7 @@ export class CardService {
   async createCard(code: string, initialAmount: number, operatorId?: string): Promise<Card> {
     const existing = await this.#cardRepo.findByCode(code);
     if (existing) {
-      throw new Error('Card with this code already exists');
+      throw new DuplicateCardError();
     }
 
     const card = await this.#cardRepo.create(code, initialAmount);
@@ -37,7 +42,7 @@ export class CardService {
   async getBalance(code: string): Promise<{ card: Card; balance: number }> {
     const card = await this.#cardRepo.findByCode(code);
     if (!card) {
-      throw new Error('Card not found');
+      throw new CardNotFoundError();
     }
     return { card, balance: Number(card.balance) };
   }
@@ -45,12 +50,12 @@ export class CardService {
   async debit(code: string, amount: number, operatorId: string, description?: string): Promise<Card> {
     const card = await this.#cardRepo.findByCode(code);
     if (!card) {
-      throw new Error('Card not found');
+      throw new CardNotFoundError();
     }
 
     const currentBalance = Number(card.balance);
     if (currentBalance < amount) {
-      throw new Error(`Insufficient balance. Current: ${currentBalance}, Required: ${amount}`);
+      throw new InsufficientBalanceError(currentBalance, amount);
     }
 
     const newBalance = currentBalance - amount;
@@ -71,7 +76,7 @@ export class CardService {
   async credit(code: string, amount: number, operatorId: string, description?: string): Promise<Card> {
     const card = await this.#cardRepo.findByCode(code);
     if (!card) {
-      throw new Error('Card not found');
+      throw new CardNotFoundError();
     }
 
     const currentBalance = Number(card.balance);
@@ -93,7 +98,7 @@ export class CardService {
   async getHistory(code: string): Promise<Transaction[]> {
     const card = await this.#cardRepo.findByCode(code);
     if (!card) {
-      throw new Error('Card not found');
+      throw new CardNotFoundError();
     }
     return this.#txRepo.findByCardId(card.id);
   }

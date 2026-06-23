@@ -1,5 +1,18 @@
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyReply } from 'fastify';
+import { AppError } from '../application/errors.ts';
 import { cardService } from '../services/index.ts';
+
+function sendError(reply: FastifyReply, error: unknown) {
+  if (error instanceof AppError) {
+    return reply.status(error.statusCode).send({
+      error: error.message,
+      code: error.code,
+    });
+  }
+
+  const message = error instanceof Error ? error.message : 'Unknown error';
+  return reply.status(500).send({ error: message, code: 'INTERNAL_ERROR' });
+}
 
 export async function registerRoutes(app: FastifyInstance) {
   // Проверка баланса (для гостей)
@@ -9,8 +22,7 @@ export async function registerRoutes(app: FastifyInstance) {
       const { balance } = await cardService.getBalance(code);
       return { code, balance };
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
-      return reply.status(404).send({ error: message });
+      return sendError(reply, error);
     }
   });
 
@@ -25,8 +37,7 @@ export async function registerRoutes(app: FastifyInstance) {
       const card = await cardService.createCard(code, amount, operatorId);
       return reply.status(201).send(card);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
-      return reply.status(400).send({ error: message });
+      return sendError(reply, error);
     }
   });
 
@@ -42,8 +53,7 @@ export async function registerRoutes(app: FastifyInstance) {
       const card = await cardService.debit(code, amount, operatorId, description);
       return { code, balance: card.balance };
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
-      return reply.status(400).send({ error: message });
+      return sendError(reply, error);
     }
   });
 
@@ -59,8 +69,7 @@ export async function registerRoutes(app: FastifyInstance) {
       const card = await cardService.credit(code, amount, operatorId, description);
       return { code, balance: card.balance };
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
-      return reply.status(400).send({ error: message });
+      return sendError(reply, error);
     }
   });
 
@@ -71,8 +80,7 @@ export async function registerRoutes(app: FastifyInstance) {
       const history = await cardService.getHistory(code);
       return { code, transactions: history };
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
-      return reply.status(404).send({ error: message });
+      return sendError(reply, error);
     }
   });
 
