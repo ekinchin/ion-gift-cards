@@ -1,4 +1,4 @@
-import { Bot, Context, session } from 'grammy';
+import { Bot, Context, session, type SessionFlavor } from 'grammy';
 import { cardService, operatorRepository } from '../services/index.ts';
 import { randomUUID } from 'node:crypto';
 
@@ -7,14 +7,14 @@ if (!token) {
   throw new Error('TELEGRAM_BOT_TOKEN is required');
 }
 
-const bot = new Bot(token);
-
 interface SessionData {
   action?: 'debit' | 'credit' | 'balance' | 'create';
   cardCode?: string;
 }
 
-type MyContext = Context & { session: SessionData };
+type MyContext = Context & SessionFlavor<SessionData>;
+
+const bot = new Bot<MyContext>(token);
 
 bot.use(session({ initial: (): SessionData => ({}) }));
 
@@ -127,7 +127,7 @@ bot.command('create', async (ctx) => {
     await ctx.reply('❌ Использование: /create <начальная_сумма>');
     return;
   }
-  const amountStr = parts.at(0);
+  const [amountStr] = parts;
   const code = randomUUID();
   const amount = parseFloat(amountStr);
   if (isNaN(amount) || amount <= 0) {
