@@ -1,4 +1,4 @@
-import { Bot, Context, session } from 'grammy';
+import { Bot, Context, session, type SessionFlavor } from 'grammy';
 import { cardService, operatorRepository } from '../services/index.ts';
 import { randomUUID } from 'node:crypto';
 
@@ -7,27 +7,26 @@ if (!token) {
   throw new Error('TELEGRAM_BOT_TOKEN is required');
 }
 
-const bot = new Bot(token);
-
 interface SessionData {
   action?: 'debit' | 'credit' | 'balance' | 'create';
   cardCode?: string;
 }
 
-type MyContext = Context & { session: SessionData };
+type MyContext = Context & SessionFlavor<SessionData>;
+
+const bot = new Bot<MyContext>(token);
 
 bot.use(session({ initial: (): SessionData => ({}) }));
 
 // Проверка оператора
-async function isOperator(telegramId: number): Promise<boolean> {
-  const operator = await operatorRepository.findByTelegramId(telegramId);
-  return !!operator;
+async function getOperator(telegramId: number) {
+  return operatorRepository.findByTelegramId(telegramId);
 }
 
 // Команда /start
 bot.command('start', async (ctx) => {
-  const isOp = await isOperator(ctx.from?.id || 0);
-  if (isOp) {
+  const operator = await getOperator(ctx.from?.id || 0);
+  if (operator) {
     await ctx.reply(
       '👋 Добро пожаловать, оператор!\n\n' +
       'Команды:\n' +
@@ -64,7 +63,8 @@ bot.command('balance', async (ctx) => {
 
 // Списание (только для операторов)
 bot.command('debit', async (ctx) => {
-  if (!(await isOperator(ctx.from?.id || 0))) {
+  const operator = await getOperator(ctx.from?.id || 0);
+  if (!operator) {
     await ctx.reply('❌ У вас нет прав для этой операции');
     return;
   }
@@ -81,7 +81,7 @@ bot.command('debit', async (ctx) => {
   }
   const description = descParts.join(' ') || undefined;
   try {
-    const card = await cardService.debit(code, amount, String(ctx.from?.id), description);
+    const card = await cardService.debit(code, amount, operator.id, description);
     await ctx.reply(`✅ Списано: ${amount} ₽\n💳 Карта: ${code}\n💰 Остаток: ${card.balance} ₽`);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Ошибка';
@@ -91,7 +91,8 @@ bot.command('debit', async (ctx) => {
 
 // Пополнение (только для операторов)
 bot.command('credit', async (ctx) => {
-  if (!(await isOperator(ctx.from?.id || 0))) {
+  const operator = await getOperator(ctx.from?.id || 0);
+  if (!operator) {
     await ctx.reply('❌ У вас нет прав для этой операции');
     return;
   }
@@ -108,7 +109,7 @@ bot.command('credit', async (ctx) => {
   }
   const description = descParts.join(' ') || undefined;
   try {
-    const card = await cardService.credit(code, amount, String(ctx.from?.id), description);
+    const card = await cardService.credit(code, amount, operator.id, description);
     await ctx.reply(`✅ Пополнено: ${amount} ₽\n💳 Карта: ${code}\n💰 Баланс: ${card.balance} ₽`);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Ошибка';
@@ -118,7 +119,8 @@ bot.command('credit', async (ctx) => {
 
 // Создание карты (только для операторов)
 bot.command('create', async (ctx) => {
-  if (!(await isOperator(ctx.from?.id || 0))) {
+  const operator = await getOperator(ctx.from?.id || 0);
+  if (!operator) {
     await ctx.reply('❌ У вас нет прав для этой операции');
     return;
   }
@@ -127,7 +129,7 @@ bot.command('create', async (ctx) => {
     await ctx.reply('❌ Использование: /create <начальная_сумма>');
     return;
   }
-  const amountStr = parts.at(0);
+  const [amountStr] = parts;
   const code = randomUUID();
   const amount = parseFloat(amountStr);
   if (isNaN(amount) || amount <= 0) {
@@ -135,7 +137,7 @@ bot.command('create', async (ctx) => {
     return;
   }
   try {
-    const card = await cardService.createCard(code, amount, String(ctx.from?.id));
+    const card = await cardService.createCard(code, amount, operator.id);
     await ctx.reply(`✅ Карта создана!\n💳 Код: ${card.code}\n💰 Баланс: ${card.balance} ₽`);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Ошибка';

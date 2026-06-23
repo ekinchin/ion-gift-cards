@@ -1,0 +1,125 @@
+import { CardRepository } from '../repositories/card.repository.ts';
+import { TransactionRepository } from '../repositories/transaction.repository.ts';
+import type { Card, Transaction } from '../types/index.ts';
+import { db } from '../db/knex.ts';
+import {
+  CardNotFoundError,
+  DuplicateCardError,
+  InsufficientBalanceError,
+  InvalidAmountError,
+} from './errors.ts';
+
+export class CardUseCases {
+  #cardRepo: CardRepository;
+  #txRepo: TransactionRepository;
+
+  constructor(
+    cardRepo: CardRepository,
+    txRepo: TransactionRepository
+  ) {
+    this.#cardRepo = cardRepo;
+    this.#txRepo = txRepo;
+  }
+
+  async createCard(code: string, initialAmount: number, operatorId?: string): Promise<Card> {
+    this.#assertPositiveAmount(initialAmount);
+
+    return db.transaction(async (trx) => {
+      const existing = await this.#cardRepo.findByCode(code, trx);
+      if (existing) {
+        throw new DuplicateCardError();
+      }
+
+      const card = await this.#cardRepo.create(code, initialAmount, trx);
+
+      await this.#txRepo.create({
+        cardId: card.id,
+        type: 'CREATE',
+        amount: initialAmount,
+        balanceAfter: initialAmount,
+        description: 'Card created',
+        operatorId,
+      }, trx);
+
+      return card;
+    });
+  }
+
+  async getBalance(code: string): Promise<{ card: Card; balance: number }> {
+    const card = await this.#cardRepo.findByCode(code);
+    if (!card) {
+      throw new CardNotFoundError();
+    }
+    return { card, balance: Number(card.balance) };
+  }
+
+  async debit(code: string, amount: number, operatorId: string, description?: string): Promise<Card> {
+    this.#assertPositiveAmount(amount);
+
+    return db.transaction(async (trx) => {
+      const card = await this.#cardRepo.findByCodeForUpdate(code, trx);
+      if (!card) {
+        throw new CardNotFoundError();
+      }
+
+      const currentBalance = Number(card.balance);
+      if (currentBalance < amount) {
+        throw new InsufficientBalanceError(currentBalance, amount);
+      }
+
+      const newBalance = currentBalance - amount;
+      await this.#cardRepo.updateBalance(card.id, newBalance, trx);
+
+      await this.#txRepo.create({
+        cardId: card.id,
+        type: 'DEBIT',
+        amount,
+        balanceAfter: newBalance,
+        description: description || 'Purchase',
+        operatorId,
+      }, trx);
+
+      return { ...card, balance: newBalance };
+    });
+  }
+
+  async credit(code: string, amount: number, operatorId: string, description?: string): Promise<Card> {
+    this.#assertPositiveAmount(amount);
+
+    return db.transaction(async (trx) => {
+      const card = await this.#cardRepo.findByCodeForUpdate(code, trx);
+      if (!card) {
+        throw new CardNotFoundError();
+      }
+
+      const currentBalance = Number(card.balance);
+      const newBalance = currentBalance + amount;
+      await this.#cardRepo.updateBalance(card.id, newBalance, trx);
+
+      await this.#txRepo.create({
+        cardId: card.id,
+        type: 'CREDIT',
+        amount,
+        balanceAfter: newBalance,
+        description: description || 'Deposit',
+        operatorId,
+      }, trx);
+
+      return { ...card, balance: newBalance };
+    });
+  }
+
+  #assertPositiveAmount(amount: number) {
+    if (!Number.isFinite(amount) || amount <= 0) {
+      throw new InvalidAmountError();
+    }
+  }
+
+  async getHistory(code: string): Promise<Transaction[]> {
+    const card = await this.#cardRepo.findByCode(code);
+    if (!card) {
+      throw new CardNotFoundError();
+    }
+    return this.#txRepo.findByCardId(card.id);
+  }
+}

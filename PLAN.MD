@@ -6,7 +6,7 @@
 
 | Компонент | Технология |
 |-----------|------------|
-| Runtime | Node.js 22+ с --experimental-strip-types |
+| Runtime | Node.js 24 с --experimental-strip-types |
 | Язык | TypeScript |
 | API | Fastify |
 | БД | PostgreSQL |
@@ -17,8 +17,13 @@
 
 ```
 src/
+├── application/
+│   ├── card.use-cases.ts   # Application use cases
+│   └── errors.ts           # Типизированные ошибки
 ├── api/
-│   └── routes.ts           # API роуты
+│   ├── auth.ts             # Разрешение оператора
+│   ├── routes.ts           # API роуты
+│   └── schemas.ts          # Runtime validation schemas
 ├── bot/
 │   └── index.ts            # Telegram бот
 ├── db/
@@ -31,8 +36,8 @@ src/
 │   ├── TransactionRepository.ts
 │   └── OperatorRepository.ts
 ├── services/
-│   ├── CardService.ts      # Бизнес-логика
-│   └── index.ts
+│   ├── card.service.ts     # Совместимый экспорт
+│   └── index.ts            # Composition root
 ├── types/
 │   └── index.ts
 └── index.ts                # Точка входа API
@@ -45,6 +50,8 @@ src/
 - ✅ Бариста списывает сумму (DEBIT)
 - ✅ Бариста пополняет баланс (CREDIT)
 - ✅ История транзакций
+- ✅ Операторские API-запросы разрешают оператора на сервере
+- ✅ Мутации карты выполняются в транзакции БД
 
 ### Миграции
 

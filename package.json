@@ -10,14 +10,16 @@
     "dev": "node --experimental-strip-types --watch src/index.ts",
     "typecheck": "tsc --noEmit",
     "db:migrate": "node --experimental-strip-types src/db/migrations/run.ts",
-    "bot": "node --experimental-strip-types src/bot/index.ts"
+    "bot": "node --experimental-strip-types src/bot/index.ts",
+    "test": "node --experimental-strip-types --test test/**/*.test.ts"
   },
   "dependencies": {
     "fastify": "^5.8.1",
     "grammy": "^1.41.1",
     "knex": "^3.1.0",
     "pg": "^8.20.0",
-    "qrcode": "^1.5.4"
+    "qrcode": "^1.5.4",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/node": "^24.12.0",

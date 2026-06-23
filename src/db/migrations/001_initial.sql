@@ -11,8 +11,8 @@ CREATE TABLE IF NOT EXISTS operators (
 CREATE TABLE IF NOT EXISTS cards (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     code TEXT UNIQUE NOT NULL,
-    balance DECIMAL(10,2) DEFAULT 0,
-    initial_amount DECIMAL(10,2) NOT NULL DEFAULT 0,
+    balance DECIMAL(10,2) NOT NULL DEFAULT 0 CHECK (balance >= 0),
+    initial_amount DECIMAL(10,2) NOT NULL DEFAULT 0 CHECK (initial_amount >= 0),
     is_active BOOLEAN DEFAULT true,
     created_at TIMESTAMP DEFAULT NOW()
 );
@@ -20,12 +20,12 @@ CREATE TABLE IF NOT EXISTS cards (
 -- Таблица транзакций
 CREATE TABLE IF NOT EXISTS transactions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    card_id UUID REFERENCES cards(id) ON DELETE CASCADE,
+    card_id UUID NOT NULL REFERENCES cards(id) ON DELETE CASCADE,
     type TEXT NOT NULL CHECK (type IN ('CREATE', 'DEBIT', 'CREDIT')),
-    amount DECIMAL(10,2) NOT NULL,
-    balance_after DECIMAL(10,2) NOT NULL,
+    amount DECIMAL(10,2) NOT NULL CHECK (amount > 0),
+    balance_after DECIMAL(10,2) NOT NULL CHECK (balance_after >= 0),
     description TEXT,
-    operator_id TEXT REFERENCES operators(id),
+    operator_id UUID REFERENCES operators(id),
     created_at TIMESTAMP DEFAULT NOW()
 );
 
