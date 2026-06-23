@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS transactions (
     amount DECIMAL(10,2) NOT NULL,
     balance_after DECIMAL(10,2) NOT NULL,
     description TEXT,
-    operator_id TEXT REFERENCES operators(id),
+    operator_id UUID REFERENCES operators(id),
     created_at TIMESTAMP DEFAULT NOW()
 );
 
