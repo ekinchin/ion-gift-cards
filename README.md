@@ -12,7 +12,7 @@
 
 ## Стек технологий
 
-- **Runtime**: Node.js 22+ с `--experimental-strip-types`
+- **Runtime**: Node.js 24 с `--experimental-strip-types`
 - **Язык**: TypeScript
 - **API**: Fastify
 - **БД**: PostgreSQL + Knex.js
@@ -61,6 +61,8 @@ npm run bot
 
 ## API Endpoints
 
+Операторские API-запросы требуют заголовок `x-operator-telegram-id` с Telegram ID активного оператора. Сервер сам находит оператора и использует внутренний `operators.id`; передавать `operatorId` в теле запроса не нужно.
+
 | Метод | URL | Описание |
 |-------|-----|----------|
 | GET | `/api/cards/:code/balance` | Проверить баланс |
@@ -85,8 +87,13 @@ npm run bot
 
 ```
 src/
+├── application/
+│   ├── card.use-cases.ts   # Сценарии работы с картами
+│   └── errors.ts           # Типизированные ошибки приложения
 ├── api/
-│   └── routes.ts           # API роуты
+│   ├── auth.ts             # Разрешение оператора для API
+│   ├── routes.ts           # API роуты
+│   └── schemas.ts          # Runtime validation schemas
 ├── bot/
 │   └── index.ts            # Telegram бот
 ├── db/
@@ -95,12 +102,12 @@ src/
 │       ├── 001_initial.sql # SQL миграции
 │       └── run.ts          # Скрипт миграций
 ├── repositories/
-│   ├── CardRepository.ts
-│   ├── TransactionRepository.ts
-│   └── OperatorRepository.ts
+│   ├── card.repository.ts
+│   ├── transaction.repository.ts
+│   └── operator.repository.ts
 ├── services/
-│   ├── CardService.ts
-│   └── index.ts
+│   ├── card.service.ts     # Совместимый экспорт
+│   └── index.ts            # Composition root
 ├── types/
 │   └── index.ts
 └── index.ts                # Точка входа API
