@@ -1,6 +1,11 @@
 import type { FastifyInstance, FastifyReply } from 'fastify';
 import { AppError } from '../application/errors.ts';
 import { cardService } from '../services/index.ts';
+import {
+  cardCodeParamsSchema,
+  createCardBodySchema,
+  mutateCardBodySchema,
+} from './schemas.ts';
 
 function sendError(reply: FastifyReply, error: unknown) {
   if (error instanceof AppError) {
@@ -16,7 +21,11 @@ function sendError(reply: FastifyReply, error: unknown) {
 
 export async function registerRoutes(app: FastifyInstance) {
   // Проверка баланса (для гостей)
-  app.get('/api/cards/:code/balance', async (request, reply) => {
+  app.get('/api/cards/:code/balance', {
+    schema: {
+      params: cardCodeParamsSchema,
+    },
+  }, async (request, reply) => {
     const { code } = request.params as { code: string };
     try {
       const { balance } = await cardService.getBalance(code);
@@ -27,7 +36,11 @@ export async function registerRoutes(app: FastifyInstance) {
   });
 
   // Создать карту (для операторов)
-  app.post('/api/cards', async (request, reply) => {
+  app.post('/api/cards', {
+    schema: {
+      body: createCardBodySchema,
+    },
+  }, async (request, reply) => {
     const { code, amount, operatorId } = request.body as {
       code: string;
       amount: number;
@@ -42,7 +55,12 @@ export async function registerRoutes(app: FastifyInstance) {
   });
 
   // Списание (для операторов)
-  app.post('/api/cards/:code/debit', async (request, reply) => {
+  app.post('/api/cards/:code/debit', {
+    schema: {
+      params: cardCodeParamsSchema,
+      body: mutateCardBodySchema,
+    },
+  }, async (request, reply) => {
     const { code } = request.params as { code: string };
     const { amount, operatorId, description } = request.body as {
       amount: number;
@@ -58,7 +76,12 @@ export async function registerRoutes(app: FastifyInstance) {
   });
 
   // Пополнение (для операторов)
-  app.post('/api/cards/:code/credit', async (request, reply) => {
+  app.post('/api/cards/:code/credit', {
+    schema: {
+      params: cardCodeParamsSchema,
+      body: mutateCardBodySchema,
+    },
+  }, async (request, reply) => {
     const { code } = request.params as { code: string };
     const { amount, operatorId, description } = request.body as {
       amount: number;
@@ -74,7 +97,11 @@ export async function registerRoutes(app: FastifyInstance) {
   });
 
   // История транзакций
-  app.get('/api/cards/:code/history', async (request, reply) => {
+  app.get('/api/cards/:code/history', {
+    schema: {
+      params: cardCodeParamsSchema,
+    },
+  }, async (request, reply) => {
     const { code } = request.params as { code: string };
     try {
       const history = await cardService.getHistory(code);
