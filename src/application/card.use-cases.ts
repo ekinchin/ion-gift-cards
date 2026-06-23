@@ -6,6 +6,7 @@ import {
   CardNotFoundError,
   DuplicateCardError,
   InsufficientBalanceError,
+  InvalidAmountError,
 } from './errors.ts';
 
 export class CardUseCases {
@@ -21,6 +22,8 @@ export class CardUseCases {
   }
 
   async createCard(code: string, initialAmount: number, operatorId?: string): Promise<Card> {
+    this.#assertPositiveAmount(initialAmount);
+
     return db.transaction(async (trx) => {
       const existing = await this.#cardRepo.findByCode(code, trx);
       if (existing) {
@@ -51,6 +54,8 @@ export class CardUseCases {
   }
 
   async debit(code: string, amount: number, operatorId: string, description?: string): Promise<Card> {
+    this.#assertPositiveAmount(amount);
+
     return db.transaction(async (trx) => {
       const card = await this.#cardRepo.findByCodeForUpdate(code, trx);
       if (!card) {
@@ -79,6 +84,8 @@ export class CardUseCases {
   }
 
   async credit(code: string, amount: number, operatorId: string, description?: string): Promise<Card> {
+    this.#assertPositiveAmount(amount);
+
     return db.transaction(async (trx) => {
       const card = await this.#cardRepo.findByCodeForUpdate(code, trx);
       if (!card) {
@@ -100,6 +107,12 @@ export class CardUseCases {
 
       return { ...card, balance: newBalance };
     });
+  }
+
+  #assertPositiveAmount(amount: number) {
+    if (!Number.isFinite(amount) || amount <= 0) {
+      throw new InvalidAmountError();
+    }
   }
 
   async getHistory(code: string): Promise<Transaction[]> {
