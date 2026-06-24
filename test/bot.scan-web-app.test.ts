@@ -31,6 +31,18 @@ test('parseScanWebAppData accepts scanned debit payload', () => {
   });
 });
 
+test('parseScanWebAppData accepts scanned link payload without amount', () => {
+  const payload = parseScanWebAppData(JSON.stringify({
+    action: 'link',
+    code: 'CARD-1',
+  }));
+
+  assert.deepEqual(payload, {
+    action: 'link',
+    code: 'CARD-1',
+  });
+});
+
 test('parseScanWebAppData rejects invalid scan payloads', () => {
   assert.equal(parseScanWebAppData('not-json'), null);
   assert.equal(parseScanWebAppData(JSON.stringify({ action: 'debit', code: 'CARD-1' })), null);

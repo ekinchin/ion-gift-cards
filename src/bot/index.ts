@@ -1,5 +1,5 @@
 import { Bot, Context, InlineKeyboard, Keyboard, session, type SessionFlavor } from 'grammy';
-import { cardService, operatorRepository } from '../services/index.ts';
+import { cardOwnershipService, cardService, operatorRepository } from '../services/index.ts';
 import { randomUUID } from 'node:crypto';
 import { menuButtonLabels, parseMenuButton } from './menu.ts';
 import {
@@ -31,6 +31,10 @@ const botCommands = [
   { command: 'start', description: 'Начало работы' },
   { command: 'scan', description: 'Открыть QR-сканер' },
   { command: 'balance', description: 'Проверить баланс' },
+  { command: 'mycards', description: 'Мои привязанные карты' },
+  { command: 'link', description: 'Привязать карту' },
+  { command: 'transfer', description: 'Передать карту' },
+  { command: 'accept_transfer', description: 'Принять карту' },
   { command: 'debit', description: 'Списать сумму' },
   { command: 'credit', description: 'Пополнить баланс' },
   { command: 'create', description: 'Создать карту' },
@@ -55,6 +59,8 @@ function scanButtonText(action: ScanAction) {
       return 'Сканировать QR для списания';
     case 'credit':
       return 'Сканировать QR для пополнения';
+    case 'link':
+      return 'Сканировать QR для привязки';
     case 'balance':
       return 'Сканировать QR для баланса';
   }
@@ -72,6 +78,9 @@ function mainMenuKeyboard() {
   return new Keyboard()
     .text(menuButtonLabels.balance)
     .text(menuButtonLabels.history)
+    .row()
+    .text(menuButtonLabels.mycards)
+    .text(menuButtonLabels.link)
     .row()
     .text(menuButtonLabels.scan)
     .row()
@@ -96,6 +105,85 @@ async function replyBalance(ctx: MyContext, code: string) {
   try {
     const { balance } = await cardService.getBalance(code);
     await ctx.reply(`💳 Карта: ${code}\n💰 Баланс: ${balance} ₽`);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Ошибка';
+    await ctx.reply(`❌ ${message}`);
+  }
+}
+
+async function resolveCurrentCustomer(ctx: MyContext) {
+  const from = ctx.from;
+  if (!from) {
+    await ctx.reply('❌ Не удалось определить аккаунт пользователя');
+    return null;
+  }
+
+  const displayName = [from.first_name, from.last_name].filter(Boolean).join(' ') || undefined;
+  const { customer } = await cardOwnershipService.resolveCustomer({
+    provider: 'telegram',
+    providerUserId: String(from.id),
+    username: from.username,
+    displayName,
+  });
+  return customer;
+}
+
+async function replyMyCards(ctx: MyContext) {
+  const customer = await resolveCurrentCustomer(ctx);
+  if (!customer) return;
+
+  const cards = await cardOwnershipService.listCards(customer.id);
+  if (cards.length === 0) {
+    await ctx.reply('У вас пока нет привязанных карт. Привяжите карту командой /link <код> или через QR.');
+    return;
+  }
+
+  const lines = cards.map((card) => `💳 ${card.code}\n💰 Баланс: ${card.balance} ₽`);
+  await ctx.reply(`🎟️ Ваши карты:\n\n${lines.join('\n\n')}`);
+}
+
+async function replyOwnedBalance(ctx: MyContext, code?: string) {
+  const customer = await resolveCurrentCustomer(ctx);
+  if (!customer) return;
+
+  try {
+    const { card, balance } = await cardOwnershipService.getOwnedBalance(customer.id, code);
+    await ctx.reply(`💳 Карта: ${card.code}\n💰 Баланс: ${balance} ₽`);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Ошибка';
+    await ctx.reply(`❌ ${message}`);
+  }
+}
+
+async function replyOwnedHistory(ctx: MyContext, code?: string) {
+  const customer = await resolveCurrentCustomer(ctx);
+  if (!customer) return;
+
+  try {
+    const { card, transactions } = await cardOwnershipService.getOwnedHistory(customer.id, code);
+    if (transactions.length === 0) {
+      await ctx.reply(`💳 Карта: ${card.code}\n📋 История пуста`);
+      return;
+    }
+    const lines = transactions.slice(0, 10).map((tx) => {
+      const sign = tx.type === 'DEBIT' ? '-' : '+';
+      const emoji = tx.type === 'DEBIT' ? '🔴' : '🟢';
+      return `${emoji} ${sign}${tx.amount} ₽ → ${tx.balance_after} ₽`;
+    });
+    await ctx.reply(`💳 Карта: ${card.code}\n📋 Последние операции:\n\n${lines.join('\n')}`);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Ошибка';
+    await ctx.reply(`❌ ${message}`);
+  }
+}
+
+async function linkCardToCurrentCustomer(ctx: MyContext, code: string) {
+  const customer = await resolveCurrentCustomer(ctx);
+  if (!customer) return;
+
+  try {
+    const card = await cardOwnershipService.linkCard(customer.id, code);
+    await ctx.reply(`✅ Карта привязана\n💳 Карта: ${card.code}\n💰 Баланс: ${card.balance} ₽`);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Ошибка';
     await ctx.reply(`❌ ${message}`);
@@ -147,6 +235,21 @@ async function handleMenuButton(ctx: MyContext, text: string) {
     return true;
   }
 
+  if (action === 'mycards') {
+    await replyMyCards(ctx);
+    return true;
+  }
+
+  if (action === 'link') {
+    await replyScanPrompt(
+      ctx,
+      'Отсканируйте QR-код карты для привязки:',
+      { action: 'link' },
+      'Укажите код вручную: /link <код>'
+    );
+    return true;
+  }
+
   if (action === 'scan') {
     await replyScanPrompt(
       ctx,
@@ -184,6 +287,7 @@ bot.command('start', async (ctx) => {
     await ctx.reply(
       '👋 Привет!\n\n' +
       'Отправьте код вашего сертификата, чтобы узнать баланс.\n' +
+      'Для восстановления доступа привяжите карту командой /link <код>.\n' +
       'Или выберите действие на клавиатуре ниже.',
       { reply_markup: mainMenuKeyboard() }
     );
@@ -203,15 +307,71 @@ bot.command('scan', async (ctx) => {
 bot.command('balance', async (ctx) => {
   const code = ctx.match?.trim();
   if (!code) {
-    await replyScanPrompt(
-      ctx,
-      'Отсканируйте QR-код карты для проверки баланса:',
-      { action: 'balance' },
-      'Укажите код вручную: /balance <код>'
-    );
+    await replyOwnedBalance(ctx);
     return;
   }
   await replyBalance(ctx, code);
+});
+
+bot.command('mycards', async (ctx) => {
+  await replyMyCards(ctx);
+});
+
+bot.command('link', async (ctx) => {
+  const code = ctx.match?.trim();
+  if (!code) {
+    await replyScanPrompt(
+      ctx,
+      'Отсканируйте QR-код карты для привязки:',
+      { action: 'link' },
+      'Укажите код вручную: /link <код>'
+    );
+    return;
+  }
+
+  await linkCardToCurrentCustomer(ctx, code);
+});
+
+bot.command('transfer', async (ctx) => {
+  const customer = await resolveCurrentCustomer(ctx);
+  if (!customer) return;
+
+  const code = ctx.match?.trim();
+  if (!code) {
+    await ctx.reply('❌ Использование: /transfer <код>');
+    return;
+  }
+
+  try {
+    const { card, token, expiresAt } = await cardOwnershipService.startTransfer(customer.id, code);
+    await ctx.reply(
+      `🔐 Передача карты: ${card.code}\n` +
+      `Перешлите получателю команду:\n/accept_transfer ${token}\n\n` +
+      `Код действует до ${expiresAt.toLocaleString('ru-RU')}.`
+    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Ошибка';
+    await ctx.reply(`❌ ${message}`);
+  }
+});
+
+bot.command('accept_transfer', async (ctx) => {
+  const customer = await resolveCurrentCustomer(ctx);
+  if (!customer) return;
+
+  const token = ctx.match?.trim();
+  if (!token) {
+    await ctx.reply('❌ Использование: /accept_transfer <код_передачи>');
+    return;
+  }
+
+  try {
+    const card = await cardOwnershipService.acceptTransfer(customer.id, token);
+    await ctx.reply(`✅ Карта принята\n💳 Карта: ${card.code}\n💰 Баланс: ${card.balance} ₽`);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Ошибка';
+    await ctx.reply(`❌ ${message}`);
+  }
 });
 
 // Списание (только для операторов)
@@ -328,12 +488,7 @@ bot.command('create', async (ctx) => {
 bot.command('history', async (ctx) => {
   const code = ctx.match?.trim();
   if (!code) {
-    await replyScanPrompt(
-      ctx,
-      'Отсканируйте QR-код карты для просмотра истории:',
-      { action: 'history' },
-      'Укажите код вручную: /history <код>'
-    );
+    await replyOwnedHistory(ctx);
     return;
   }
   await replyHistory(ctx, code);
@@ -353,6 +508,11 @@ bot.on('message:web_app_data', async (ctx) => {
 
   if (payload.action === 'history') {
     await replyHistory(ctx, payload.code);
+    return;
+  }
+
+  if (payload.action === 'link') {
+    await linkCardToCurrentCustomer(ctx, payload.code);
     return;
   }
 

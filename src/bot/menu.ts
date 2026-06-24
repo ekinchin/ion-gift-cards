@@ -1,6 +1,8 @@
 export const menuButtonLabels = {
   balance: '💳 Баланс',
   history: '📋 История',
+  mycards: '🎟️ Мои карты',
+  link: '🔗 Привязать карту',
   scan: '📷 Сканировать QR',
   debit: '🔴 Списать',
   credit: '🟢 Пополнить',
