@@ -3,7 +3,6 @@ export const menuButtonLabels = {
   history: '📋 История',
   mycards: '🎟️ Мои карты',
   link: '🔗 Привязать карту',
-  scan: '📷 Сканировать QR',
   debit: '🔴 Списать',
   credit: '🟢 Пополнить',
   create: '➕ Создать карту',

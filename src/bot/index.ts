@@ -34,7 +34,6 @@ bot.use(session({ initial: (): SessionData => ({}) }));
 
 const botCommands = [
   { command: 'start', description: 'Начало работы' },
-  { command: 'scan', description: 'Открыть QR-сканер' },
   { command: 'balance', description: 'Проверить баланс' },
   { command: 'mycards', description: 'Мои привязанные карты' },
   { command: 'link', description: 'Привязать карту' },
@@ -86,8 +85,6 @@ function mainMenuKeyboard() {
     .row()
     .text(menuButtonLabels.mycards)
     .text(menuButtonLabels.link)
-    .row()
-    .text(menuButtonLabels.scan)
     .row()
     .text(menuButtonLabels.debit)
     .text(menuButtonLabels.credit)
@@ -257,16 +254,6 @@ async function handleMenuButton(ctx: MyContext, text: string) {
     return true;
   }
 
-  if (action === 'scan') {
-    await replyScanPrompt(
-      ctx,
-      'Откройте сканер QR-кода:',
-      { action: 'balance' },
-      'Укажите код вручную: /balance <код>'
-    );
-    return true;
-  }
-
   if (action === 'debit') {
     await ctx.reply('Введите сумму для списания: /debit <сумма> [описание]');
     return true;
@@ -350,16 +337,6 @@ bot.command('start', async (ctx) => {
       { reply_markup: mainMenuKeyboard() }
     );
   }
-});
-
-bot.command('scan', async (ctx) => {
-  ctx.session.action = undefined;
-  await replyScanPrompt(
-    ctx,
-    'Откройте сканер QR-кода:',
-    { action: 'balance' },
-    'Укажите код вручную: /balance <код>'
-  );
 });
 
 // Проверка баланса

@@ -54,5 +54,4 @@ test('getPendingActionForMenuAction returns only actions that wait for amount te
   assert.equal(getPendingActionForMenuAction('history'), undefined);
   assert.equal(getPendingActionForMenuAction('mycards'), undefined);
   assert.equal(getPendingActionForMenuAction('link'), undefined);
-  assert.equal(getPendingActionForMenuAction('scan'), undefined);
 });
