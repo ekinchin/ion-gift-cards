@@ -66,9 +66,9 @@ export async function registerRoutes(app: FastifyInstance) {
       return sendValidationError(reply, body.error);
     }
 
-    const { code, amount } = body.data;
+    const { amount } = body.data;
     try {
-      const card = await cardService.createCard(code, amount, operator.id);
+      const card = await cardService.createCard(amount, operator.id);
       return reply.status(201).send(card);
     } catch (error) {
       return sendError(reply, error);

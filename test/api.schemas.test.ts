@@ -12,9 +12,25 @@ test('API schemas expose Zod parsers', () => {
   assert.equal(typeof mutateCardBodySchema.safeParse, 'function');
 });
 
-test('create card body rejects trusted operatorId from request body', () => {
+test('create card body accepts amount only', () => {
+  const result = createCardBodySchema.safeParse({
+    amount: 100,
+  });
+
+  assert.equal(result.success, true);
+});
+
+test('create card body rejects manually supplied code', () => {
   const result = createCardBodySchema.safeParse({
     code: 'CARD-1',
+    amount: 100,
+  });
+
+  assert.equal(result.success, false);
+});
+
+test('create card body rejects trusted operatorId from request body', () => {
+  const result = createCardBodySchema.safeParse({
     amount: 100,
     operatorId: '00000000-0000-0000-0000-000000000000',
   });

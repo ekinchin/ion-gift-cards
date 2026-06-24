@@ -1,6 +1,5 @@
 import { Bot, Context, InlineKeyboard, Keyboard, session, type SessionFlavor } from 'grammy';
 import { cardOwnershipService, cardService, operatorRepository } from '../services/index.ts';
-import { randomUUID } from 'node:crypto';
 import { menuButtonLabels, parseMenuButton } from './menu.ts';
 import {
   buildScanWebAppUrl,
@@ -469,14 +468,13 @@ bot.command('create', async (ctx) => {
     return;
   }
   const [amountStr] = parts;
-  const code = randomUUID();
   const amount = parseFloat(amountStr);
   if (isNaN(amount) || amount <= 0) {
     await ctx.reply('❌ Некорректная сумма');
     return;
   }
   try {
-    const card = await cardService.createCard(code, amount, operator.id);
+    const card = await cardService.createCard(amount, operator.id);
     await ctx.reply(`✅ Карта создана!\n💳 Код: ${card.code}\n💰 Баланс: ${card.balance} ₽`);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Ошибка';

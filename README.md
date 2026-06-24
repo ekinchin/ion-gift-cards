@@ -110,6 +110,14 @@ WEB_APP_URL=https://your-domain.example/qr npm run bot
 | GET | `/api/cards/:code/history` | История операций |
 | GET | `/health` | Health check |
 
+Создание карты принимает только сумму:
+
+```json
+{ "amount": 1000 }
+```
+
+Публичный код карты формируется сервером в формате `ION-XXXXXXXXXXXX`.
+
 ## Telegram Bot команды
 
 После `/start` бот показывает кнопочное меню с основными действиями. Кнопки запускают сканирование QR или подсказывают нужный формат команды.

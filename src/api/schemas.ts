@@ -5,7 +5,6 @@ export const cardCodeParamsSchema = z.object({
 }).strict();
 
 export const createCardBodySchema = z.object({
-  code: z.string().min(1).max(128),
   amount: z.number().positive(),
 }).strict();
 

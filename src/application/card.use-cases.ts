@@ -1,7 +1,9 @@
 import { CardRepository } from '../repositories/card.repository.ts';
 import { TransactionRepository } from '../repositories/transaction.repository.ts';
+import type { Knex } from 'knex';
 import type { Card, Transaction } from '../types/index.ts';
 import { db } from '../db/knex.ts';
+import { generateCardCode } from './card-code.generator.ts';
 import {
   CardNotFoundError,
   DuplicateCardError,
@@ -9,26 +11,32 @@ import {
   InvalidAmountError,
 } from './errors.ts';
 
+const MAX_CARD_CODE_GENERATION_ATTEMPTS = 5;
+type TransactionRunner = <T>(callback: (trx: Knex.Transaction) => Promise<T>) => Promise<T>;
+
 export class CardUseCases {
   #cardRepo: CardRepository;
   #txRepo: TransactionRepository;
+  #codeFactory: () => string;
+  #transaction: TransactionRunner;
 
   constructor(
     cardRepo: CardRepository,
-    txRepo: TransactionRepository
+    txRepo: TransactionRepository,
+    codeFactory: () => string = generateCardCode,
+    transaction: TransactionRunner = db.transaction.bind(db)
   ) {
     this.#cardRepo = cardRepo;
     this.#txRepo = txRepo;
+    this.#codeFactory = codeFactory;
+    this.#transaction = transaction;
   }
 
-  async createCard(code: string, initialAmount: number, operatorId?: string): Promise<Card> {
+  async createCard(initialAmount: number, operatorId?: string): Promise<Card> {
     this.#assertPositiveAmount(initialAmount);
 
-    return db.transaction(async (trx) => {
-      const existing = await this.#cardRepo.findByCode(code, trx);
-      if (existing) {
-        throw new DuplicateCardError();
-      }
+    return this.#transaction(async (trx) => {
+      const code = await this.#generateUniqueCode(trx);
 
       const card = await this.#cardRepo.create(code, initialAmount, trx);
 
@@ -43,6 +51,18 @@ export class CardUseCases {
 
       return card;
     });
+  }
+
+  async #generateUniqueCode(trx: Knex.Transaction): Promise<string> {
+    for (let attempt = 0; attempt < MAX_CARD_CODE_GENERATION_ATTEMPTS; attempt += 1) {
+      const code = this.#codeFactory();
+      const existing = await this.#cardRepo.findByCode(code, trx);
+      if (!existing) {
+        return code;
+      }
+    }
+
+    throw new DuplicateCardError();
   }
 
   async getBalance(code: string): Promise<{ card: Card; balance: number }> {
