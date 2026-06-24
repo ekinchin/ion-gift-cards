@@ -7,6 +7,7 @@ import {
   type ScanAction,
   type ScanWebAppParams,
 } from './scan-web-app.ts';
+import { parseCreateCardAmount } from './create-card-command.ts';
 
 const token = process.env.TELEGRAM_BOT_TOKEN;
 if (!token) {
@@ -462,19 +463,19 @@ bot.command('create', async (ctx) => {
     await ctx.reply('❌ У вас нет прав для этой операции');
     return;
   }
-  const parts = ctx.match?.trim().split(/\s+/);
-  if (!parts || parts.length < 1) {
+  const amount = parseCreateCardAmount(ctx.match);
+  if (!amount.ok && amount.reason === 'missing') {
     await ctx.reply('❌ Использование: /create <начальная_сумма>');
     return;
   }
-  const [amountStr] = parts;
-  const amount = parseFloat(amountStr);
-  if (isNaN(amount) || amount <= 0) {
+
+  if (!amount.ok) {
     await ctx.reply('❌ Некорректная сумма');
     return;
   }
+
   try {
-    const card = await cardService.createCard(amount, operator.id);
+    const card = await cardService.createCard(amount.amount, operator.id);
     await ctx.reply(`✅ Карта создана!\n💳 Код: ${card.code}\n💰 Баланс: ${card.balance} ₽`);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Ошибка';
