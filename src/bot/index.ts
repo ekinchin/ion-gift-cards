@@ -8,6 +8,7 @@ import {
   type ScanWebAppParams,
 } from './scan-web-app.ts';
 import { parseCreateCardAmount } from './create-card-command.ts';
+import { parsePendingMenuActionInput, type PendingMenuAction } from './pending-menu-action.ts';
 
 const token = process.env.TELEGRAM_BOT_TOKEN;
 if (!token) {
@@ -17,7 +18,7 @@ if (!token) {
 const webAppUrl = process.env.WEB_APP_URL;
 
 interface SessionData {
-  action?: 'debit' | 'credit' | 'balance' | 'create';
+  action?: PendingMenuAction;
   cardCode?: string;
 }
 
@@ -261,16 +262,69 @@ async function handleMenuButton(ctx: MyContext, text: string) {
   }
 
   if (action === 'debit') {
+    ctx.session.action = 'debit';
     await ctx.reply('Введите сумму для списания: /debit <сумма> [описание]');
     return true;
   }
 
   if (action === 'credit') {
+    ctx.session.action = 'credit';
     await ctx.reply('Введите сумму для пополнения: /credit <сумма> [описание]');
     return true;
   }
 
+  ctx.session.action = 'create';
   await ctx.reply('Введите начальную сумму: /create <сумма>');
+  return true;
+}
+
+async function handlePendingMenuAction(ctx: MyContext, text: string) {
+  const pending = parsePendingMenuActionInput(ctx.session.action, text);
+  if (!pending.handled) {
+    return false;
+  }
+
+  if (!pending.ok) {
+    await ctx.reply('❌ Некорректная сумма');
+    return true;
+  }
+
+  ctx.session.action = undefined;
+
+  if (pending.action === 'debit') {
+    await replyScanPrompt(
+      ctx,
+      `Отсканируйте QR-код карты для списания ${pending.amount} ₽:`,
+      { action: 'debit', amount: pending.amount, description: pending.description },
+      'Укажите код вручную: /debit <код> <сумма> [описание]'
+    );
+    return true;
+  }
+
+  if (pending.action === 'credit') {
+    await replyScanPrompt(
+      ctx,
+      `Отсканируйте QR-код карты для пополнения на ${pending.amount} ₽:`,
+      { action: 'credit', amount: pending.amount, description: pending.description },
+      'Укажите код вручную: /credit <код> <сумма> [описание]'
+    );
+    return true;
+  }
+
+  const operator = await getOperator(ctx.from?.id || 0);
+  if (!operator) {
+    await ctx.reply('❌ У вас нет прав для этой операции');
+    return true;
+  }
+
+  try {
+    const card = await cardService.createCard(pending.amount, operator.id);
+    await ctx.reply(`✅ Карта создана!\n💳 Код: ${card.code}\n💰 Баланс: ${card.balance} ₽`);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Ошибка';
+    await ctx.reply(`❌ ${message}`);
+  }
+
   return true;
 }
 
@@ -541,6 +595,7 @@ bot.on('message:text', async (ctx) => {
   const code = ctx.message.text.trim();
   if (code.startsWith('/')) return;
   if (await handleMenuButton(ctx, code)) return;
+  if (await handlePendingMenuAction(ctx, code)) return;
 
   try {
     const { balance } = await cardService.getBalance(code);
