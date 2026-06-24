@@ -8,7 +8,11 @@ import {
   type ScanWebAppParams,
 } from './scan-web-app.ts';
 import { parseCreateCardAmount } from './create-card-command.ts';
-import { parsePendingMenuActionInput, type PendingMenuAction } from './pending-menu-action.ts';
+import {
+  getPendingActionForMenuAction,
+  parsePendingMenuActionInput,
+  type PendingMenuAction,
+} from './pending-menu-action.ts';
 
 const token = process.env.TELEGRAM_BOT_TOKEN;
 if (!token) {
@@ -216,6 +220,8 @@ async function handleMenuButton(ctx: MyContext, text: string) {
     return false;
   }
 
+  ctx.session.action = getPendingActionForMenuAction(action);
+
   if (action === 'balance') {
     await replyScanPrompt(
       ctx,
@@ -262,18 +268,15 @@ async function handleMenuButton(ctx: MyContext, text: string) {
   }
 
   if (action === 'debit') {
-    ctx.session.action = 'debit';
     await ctx.reply('Введите сумму для списания: /debit <сумма> [описание]');
     return true;
   }
 
   if (action === 'credit') {
-    ctx.session.action = 'credit';
     await ctx.reply('Введите сумму для пополнения: /credit <сумма> [описание]');
     return true;
   }
 
-  ctx.session.action = 'create';
   await ctx.reply('Введите начальную сумму: /create <сумма>');
   return true;
 }
@@ -330,6 +333,7 @@ async function handlePendingMenuAction(ctx: MyContext, text: string) {
 
 // Команда /start
 bot.command('start', async (ctx) => {
+  ctx.session.action = undefined;
   const operator = await getOperator(ctx.from?.id || 0);
   if (operator) {
     await ctx.reply(
@@ -349,6 +353,7 @@ bot.command('start', async (ctx) => {
 });
 
 bot.command('scan', async (ctx) => {
+  ctx.session.action = undefined;
   await replyScanPrompt(
     ctx,
     'Откройте сканер QR-кода:',
@@ -359,6 +364,7 @@ bot.command('scan', async (ctx) => {
 
 // Проверка баланса
 bot.command('balance', async (ctx) => {
+  ctx.session.action = undefined;
   const code = ctx.match?.trim();
   if (!code) {
     await replyOwnedBalance(ctx);
@@ -368,10 +374,12 @@ bot.command('balance', async (ctx) => {
 });
 
 bot.command('mycards', async (ctx) => {
+  ctx.session.action = undefined;
   await replyMyCards(ctx);
 });
 
 bot.command('link', async (ctx) => {
+  ctx.session.action = undefined;
   const code = ctx.match?.trim();
   if (!code) {
     await replyScanPrompt(
@@ -387,6 +395,7 @@ bot.command('link', async (ctx) => {
 });
 
 bot.command('transfer', async (ctx) => {
+  ctx.session.action = undefined;
   const customer = await resolveCurrentCustomer(ctx);
   if (!customer) return;
 
@@ -410,6 +419,7 @@ bot.command('transfer', async (ctx) => {
 });
 
 bot.command('accept_transfer', async (ctx) => {
+  ctx.session.action = undefined;
   const customer = await resolveCurrentCustomer(ctx);
   if (!customer) return;
 
@@ -430,6 +440,7 @@ bot.command('accept_transfer', async (ctx) => {
 
 // Списание (только для операторов)
 bot.command('debit', async (ctx) => {
+  ctx.session.action = undefined;
   const operator = await getOperator(ctx.from?.id || 0);
   if (!operator) {
     await ctx.reply('❌ У вас нет прав для этой операции');
@@ -471,6 +482,7 @@ bot.command('debit', async (ctx) => {
 
 // Пополнение (только для операторов)
 bot.command('credit', async (ctx) => {
+  ctx.session.action = undefined;
   const operator = await getOperator(ctx.from?.id || 0);
   if (!operator) {
     await ctx.reply('❌ У вас нет прав для этой операции');
@@ -512,6 +524,7 @@ bot.command('credit', async (ctx) => {
 
 // Создание карты (только для операторов)
 bot.command('create', async (ctx) => {
+  ctx.session.action = undefined;
   const operator = await getOperator(ctx.from?.id || 0);
   if (!operator) {
     await ctx.reply('❌ У вас нет прав для этой операции');
@@ -539,6 +552,7 @@ bot.command('create', async (ctx) => {
 
 // История операций
 bot.command('history', async (ctx) => {
+  ctx.session.action = undefined;
   const code = ctx.match?.trim();
   if (!code) {
     await replyOwnedHistory(ctx);
@@ -548,6 +562,7 @@ bot.command('history', async (ctx) => {
 });
 
 bot.on('message:web_app_data', async (ctx) => {
+  ctx.session.action = undefined;
   const payload = parseScanWebAppData(ctx.message.web_app_data.data);
   if (!payload) {
     await ctx.reply('❌ Не удалось прочитать данные сканирования');

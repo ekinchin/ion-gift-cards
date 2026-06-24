@@ -1,6 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parsePendingMenuActionInput } from '../src/bot/pending-menu-action.ts';
+import {
+  getPendingActionForMenuAction,
+  parsePendingMenuActionInput,
+} from '../src/bot/pending-menu-action.ts';
 
 test('parsePendingMenuActionInput ignores text when no action is pending', () => {
   assert.deepEqual(parsePendingMenuActionInput(undefined, '1000'), { handled: false });
@@ -41,4 +44,15 @@ test('parsePendingMenuActionInput rejects invalid pending amount', () => {
     ok: false,
     reason: 'invalid_amount',
   });
+});
+
+test('getPendingActionForMenuAction returns only actions that wait for amount text', () => {
+  assert.equal(getPendingActionForMenuAction('debit'), 'debit');
+  assert.equal(getPendingActionForMenuAction('credit'), 'credit');
+  assert.equal(getPendingActionForMenuAction('create'), 'create');
+  assert.equal(getPendingActionForMenuAction('balance'), undefined);
+  assert.equal(getPendingActionForMenuAction('history'), undefined);
+  assert.equal(getPendingActionForMenuAction('mycards'), undefined);
+  assert.equal(getPendingActionForMenuAction('link'), undefined);
+  assert.equal(getPendingActionForMenuAction('scan'), undefined);
 });

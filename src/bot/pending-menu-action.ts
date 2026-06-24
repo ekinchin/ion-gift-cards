@@ -1,3 +1,5 @@
+import type { MenuAction } from './menu.ts';
+
 export type PendingMenuAction = 'debit' | 'credit' | 'create';
 
 type PendingMenuActionInputResult =
@@ -42,4 +44,12 @@ export function parsePendingMenuActionInput(
     amount,
     description: descriptionParts.join(' ') || undefined,
   };
+}
+
+export function getPendingActionForMenuAction(action: MenuAction): PendingMenuAction | undefined {
+  if (action === 'debit' || action === 'credit' || action === 'create') {
+    return action;
+  }
+
+  return undefined;
 }
