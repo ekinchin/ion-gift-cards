@@ -53,6 +53,12 @@ export class CardOwnershipRepository {
     return owner;
   }
 
+  async unlinkCard(cardId: string, trx?: Knex.Transaction): Promise<void> {
+    await client(trx)('card_owners')
+      .where({ card_id: cardId })
+      .delete();
+  }
+
   async createTransferToken(
     token: string,
     cardId: string,
@@ -96,7 +102,7 @@ export class CardOwnershipRepository {
     data: {
       cardId: string;
       fromCustomerId: string | null;
-      toCustomerId: string;
+      toCustomerId: string | null;
       initiatedByCustomerId: string | null;
       type: CardOwnerTransferType;
     },

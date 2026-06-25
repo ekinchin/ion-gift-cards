@@ -51,13 +51,13 @@ export interface CardTransferToken {
   created_at: Date;
 }
 
-export type CardOwnerTransferType = 'INITIAL_LINK' | 'OWNER_TRANSFER';
+export type CardOwnerTransferType = 'INITIAL_LINK' | 'OWNER_TRANSFER' | 'OWNER_UNLINK';
 
 export interface CardOwnerTransfer {
   id: string;
   card_id: string;
   from_customer_id: string | null;
-  to_customer_id: string;
+  to_customer_id: string | null;
   initiated_by_customer_id: string | null;
   type: CardOwnerTransferType;
   created_at: Date;

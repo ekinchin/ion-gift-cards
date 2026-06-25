@@ -100,19 +100,19 @@ CREATE TABLE IF NOT EXISTS card_owner_transfers (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     card_id UUID NOT NULL REFERENCES cards(id) ON DELETE CASCADE,
     from_customer_id UUID REFERENCES customers(id),
-    to_customer_id UUID NOT NULL REFERENCES customers(id),
+    to_customer_id UUID REFERENCES customers(id),
     initiated_by_customer_id UUID REFERENCES customers(id),
-    type TEXT NOT NULL CHECK (type IN ('INITIAL_LINK', 'OWNER_TRANSFER')),
+    type TEXT NOT NULL CHECK (type IN ('INITIAL_LINK', 'OWNER_TRANSFER', 'OWNER_UNLINK')),
     created_at TIMESTAMP DEFAULT NOW()
 );
 
-COMMENT ON TABLE card_owner_transfers IS 'Журнал событий владения сертификатами: первичная привязка и передача владельца.';
+COMMENT ON TABLE card_owner_transfers IS 'Журнал событий владения сертификатами: первичная привязка, передача владельца и отвязка.';
 COMMENT ON COLUMN card_owner_transfers.id IS 'Внутренний идентификатор события владения.';
 COMMENT ON COLUMN card_owner_transfers.card_id IS 'Сертификат, для которого изменилось владение.';
 COMMENT ON COLUMN card_owner_transfers.from_customer_id IS 'Предыдущий владелец; NULL для первичной привязки.';
-COMMENT ON COLUMN card_owner_transfers.to_customer_id IS 'Новый владелец сертификата.';
+COMMENT ON COLUMN card_owner_transfers.to_customer_id IS 'Новый владелец сертификата; NULL для отвязки.';
 COMMENT ON COLUMN card_owner_transfers.initiated_by_customer_id IS 'Клиент, инициировавший событие владения.';
-COMMENT ON COLUMN card_owner_transfers.type IS 'Тип события владения: первичная привязка или передача владельца.';
+COMMENT ON COLUMN card_owner_transfers.type IS 'Тип события владения: первичная привязка, передача владельца или отвязка.';
 COMMENT ON COLUMN card_owner_transfers.created_at IS 'Дата и время события владения.';
 
 -- Таблица транзакций

@@ -1,8 +1,8 @@
 import type { FastifyInstance, FastifyReply } from 'fastify';
 import type { ZodError } from 'zod';
 import { AppError } from '../application/errors.ts';
-import { cardService } from '../services/index.ts';
-import { requireOperator } from './auth.ts';
+import { cardOwnershipService, cardService } from '../services/index.ts';
+import { requireCustomer, requireOperator } from './auth.ts';
 import { qrMiniAppHtml } from './qr-mini-app.html.ts';
 import {
   type CardCodeParams,
@@ -70,6 +70,42 @@ export async function registerRoutes(app: FastifyInstance) {
     try {
       const card = await cardService.createCard(amount, operator.id);
       return reply.status(201).send(card);
+    } catch (error) {
+      return sendError(reply, error);
+    }
+  });
+
+  // Отвязать карту от учетной записи по коду (для операторов)
+  app.delete<{ Params: CardCodeParams }>('/api/admin/cards/:code/owner', async (request, reply) => {
+    const operator = await requireOperator(request);
+    if (!operator) {
+      return reply.status(403).send({ error: 'Forbidden', code: 'FORBIDDEN' });
+    }
+
+    const params = cardCodeParamsSchema.safeParse(request.params);
+    if (!params.success) {
+      return sendValidationError(reply, params.error);
+    }
+
+    const { code } = params.data;
+    try {
+      const card = await cardOwnershipService.unlinkCardByCode(code, operator.id);
+      return { code: card.code, unlinked: true };
+    } catch (error) {
+      return sendError(reply, error);
+    }
+  });
+
+  // Отвязать текущую карту от учетной записи пользователя
+  app.delete('/api/me/card', async (request, reply) => {
+    const customer = await requireCustomer(request);
+    if (!customer) {
+      return reply.status(401).send({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
+    }
+
+    try {
+      const card = await cardOwnershipService.unlinkCurrentCard(customer.id);
+      return { code: card.code, unlinked: true };
     } catch (error) {
       return sendError(reply, error);
     }

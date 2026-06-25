@@ -42,6 +42,7 @@ interface OwnershipStore {
   findCardsByCustomerId(customerId: string, trx?: Knex.Transaction): Promise<Card[]>;
   linkCard(cardId: string, customerId: string, trx?: Knex.Transaction): Promise<unknown>;
   updateOwner(cardId: string, customerId: string, trx?: Knex.Transaction): Promise<unknown>;
+  unlinkCard(cardId: string, trx?: Knex.Transaction): Promise<unknown>;
   createTransferToken(
     token: string,
     cardId: string,
@@ -64,9 +65,9 @@ interface OwnershipStore {
     data: {
       cardId: string;
       fromCustomerId: string | null;
-      toCustomerId: string;
+      toCustomerId: string | null;
       initiatedByCustomerId: string | null;
-      type: 'INITIAL_LINK' | 'OWNER_TRANSFER';
+      type: 'INITIAL_LINK' | 'OWNER_TRANSFER' | 'OWNER_UNLINK';
     },
     trx?: Knex.Transaction
   ): Promise<unknown>;
@@ -144,6 +145,40 @@ export class CardOwnershipUseCases {
     return this.#ownershipRepo.findCardsByCustomerId(customerId);
   }
 
+  async unlinkCard(customerId: string, code: string): Promise<Card> {
+    return this.#unlinkOwnedCard(customerId, code, customerId);
+  }
+
+  async unlinkCurrentCard(customerId: string): Promise<Card> {
+    const card = await this.#resolveOwnedCard(customerId);
+    return this.#unlinkOwnedCard(customerId, card.code, customerId);
+  }
+
+  async unlinkCardByCode(code: string, _operatorId: string): Promise<Card> {
+    return this.#transaction(async (trx) => {
+      const card = await this.#cardRepo.findByCode(code, trx);
+      if (!card) {
+        throw new CardNotFoundError();
+      }
+
+      const owner = await this.#ownershipRepo.findOwnerByCardIdForUpdate(card.id, trx);
+      if (!owner) {
+        throw new CardOwnershipRequiredError();
+      }
+
+      await this.#ownershipRepo.unlinkCard(card.id, trx);
+      await this.#ownershipRepo.createTransferEvent({
+        cardId: card.id,
+        fromCustomerId: owner.customer_id,
+        toCustomerId: null,
+        initiatedByCustomerId: null,
+        type: 'OWNER_UNLINK',
+      }, trx);
+
+      return card;
+    });
+  }
+
   async getOwnedBalance(customerId: string, code?: string): Promise<{ card: Card; balance: number }> {
     const card = await this.#resolveOwnedCard(customerId, code);
     return { card, balance: Number(card.balance) };
@@ -213,6 +248,31 @@ export class CardOwnershipUseCases {
         toCustomerId: customerId,
         initiatedByCustomerId: transferToken.from_customer_id,
         type: 'OWNER_TRANSFER',
+      }, trx);
+
+      return card;
+    });
+  }
+
+  async #unlinkOwnedCard(customerId: string, code: string, initiatedByCustomerId: string): Promise<Card> {
+    return this.#transaction(async (trx) => {
+      const card = await this.#cardRepo.findByCode(code, trx);
+      if (!card) {
+        throw new CardNotFoundError();
+      }
+
+      const owner = await this.#ownershipRepo.findOwnerByCardIdForUpdate(card.id, trx);
+      if (owner?.customer_id !== customerId) {
+        throw new CardOwnershipRequiredError();
+      }
+
+      await this.#ownershipRepo.unlinkCard(card.id, trx);
+      await this.#ownershipRepo.createTransferEvent({
+        cardId: card.id,
+        fromCustomerId: customerId,
+        toCustomerId: null,
+        initiatedByCustomerId,
+        type: 'OWNER_UNLINK',
       }, trx);
 
       return card;

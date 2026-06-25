@@ -88,6 +88,9 @@ function makeUseCases() {
       owners.set(cardId, owner);
       return owner;
     },
+    async unlinkCard(cardId: string) {
+      owners.delete(cardId);
+    },
     async createTransferToken(token: string, cardId: string, fromCustomerId: string, expiresAt: Date) {
       const transferToken = {
         id: `token-${tokens.size + 1}`,
@@ -155,6 +158,35 @@ test('linkCard rejects a card owned by another customer', async () => {
   await assert.rejects(
     () => useCases.linkCard('customer-1', 'CARD-1'),
     /Card is already linked to another customer/
+  );
+});
+
+test('unlinkCard removes current owner and records unlink event', async () => {
+  const { useCases, cards, owners, transfers } = makeUseCases();
+  cards.set('card-1', makeCard());
+  owners.set('card-1', { card_id: 'card-1', customer_id: 'customer-1', linked_at: now });
+
+  const card = await useCases.unlinkCard('customer-1', 'CARD-1');
+
+  assert.equal(card.id, 'card-1');
+  assert.equal(owners.has('card-1'), false);
+  assert.deepEqual(transfers[0], {
+    cardId: 'card-1',
+    fromCustomerId: 'customer-1',
+    toCustomerId: null,
+    initiatedByCustomerId: 'customer-1',
+    type: 'OWNER_UNLINK',
+  });
+});
+
+test('unlinkCard rejects a card owned by another customer', async () => {
+  const { useCases, cards, owners } = makeUseCases();
+  cards.set('card-1', makeCard());
+  owners.set('card-1', { card_id: 'card-1', customer_id: 'customer-2', linked_at: now });
+
+  await assert.rejects(
+    () => useCases.unlinkCard('customer-1', 'CARD-1'),
+    /Card is not owned by this customer/
   );
 });
 

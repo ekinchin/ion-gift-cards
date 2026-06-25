@@ -37,6 +37,7 @@ const botCommands = [
   { command: 'balance', description: 'Проверить баланс' },
   { command: 'mycards', description: 'Мои привязанные карты' },
   { command: 'link', description: 'Привязать карту' },
+  { command: 'unlink', description: 'Отвязать карту' },
   { command: 'transfer', description: 'Передать карту' },
   { command: 'accept_transfer', description: 'Принять карту' },
   { command: 'debit', description: 'Списать сумму' },
@@ -186,6 +187,19 @@ async function linkCardToCurrentCustomer(ctx: MyContext, code: string) {
   try {
     const card = await cardOwnershipService.linkCard(customer.id, code);
     await ctx.reply(`✅ Карта привязана\n💳 Карта: ${card.code}\n💰 Баланс: ${card.balance} ₽`);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Ошибка';
+    await ctx.reply(`❌ ${message}`);
+  }
+}
+
+async function unlinkCardFromCurrentCustomer(ctx: MyContext, code: string) {
+  const customer = await resolveCurrentCustomer(ctx);
+  if (!customer) return;
+
+  try {
+    const card = await cardOwnershipService.unlinkCard(customer.id, code);
+    await ctx.reply(`✅ Карта отвязана\n💳 Карта: ${card.code}`);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Ошибка';
     await ctx.reply(`❌ ${message}`);
@@ -369,6 +383,17 @@ bot.command('link', async (ctx) => {
   }
 
   await linkCardToCurrentCustomer(ctx, code);
+});
+
+bot.command('unlink', async (ctx) => {
+  ctx.session.action = undefined;
+  const code = ctx.match?.trim();
+  if (!code) {
+    await ctx.reply('❌ Использование: /unlink <код>');
+    return;
+  }
+
+  await unlinkCardFromCurrentCustomer(ctx, code);
 });
 
 bot.command('transfer', async (ctx) => {
