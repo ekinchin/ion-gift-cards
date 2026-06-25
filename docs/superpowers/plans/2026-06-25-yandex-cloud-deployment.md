@@ -417,7 +417,7 @@ git commit -m "docs: describe yandex cloud deployment"
 
 ## Final Verification
 
-- [ ] Run:
+- [x] Run:
 
 ```bash
 npm run typecheck
