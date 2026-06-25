@@ -3,7 +3,6 @@ import assert from 'node:assert/strict';
 import { Bot } from 'grammy';
 
 test('webhook rejects requests without a valid Telegram secret token', async () => {
-  process.env.TELEGRAM_BOT_TOKEN = 'test-token';
   const { createWebhookApp } = await import('../src/bot/webhook.ts');
   const app = createWebhookApp(new Bot('test-token'), 'expected-secret', false);
 
@@ -31,7 +30,6 @@ test('webhook rejects requests without a valid Telegram secret token', async () 
 });
 
 test('webhook exposes health check endpoint', async () => {
-  process.env.TELEGRAM_BOT_TOKEN = 'test-token';
   const { createWebhookApp } = await import('../src/bot/webhook.ts');
   const app = createWebhookApp(new Bot('test-token'), 'expected-secret', false);
 

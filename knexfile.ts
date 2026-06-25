@@ -1,22 +1,20 @@
 import type { Knex } from 'knex';
+import { ConfigurationService, type DatabaseConfig } from './src/configuration/configuration-service.ts';
 
-export function resolvePoolConfig(env: NodeJS.ProcessEnv) {
+export function createKnexConfig(databaseConfig: DatabaseConfig): Knex.Config {
   return {
-    min: Number(env.DB_POOL_MIN ?? 0),
-    max: Number(env.DB_POOL_MAX ?? 2),
+    client: 'pg',
+    connection: {
+      host: databaseConfig.host,
+      port: databaseConfig.port,
+      user: databaseConfig.user,
+      password: databaseConfig.password,
+      database: databaseConfig.name,
+    },
+    pool: databaseConfig.pool,
   };
 }
 
-const config: Knex.Config = {
-  client: 'pg',
-  connection: {
-    host: process.env.DB_HOST || 'localhost',
-    port: Number(process.env.DB_PORT) || 5432,
-    user: process.env.DB_USER || 'postgres',
-    password: process.env.DB_PASSWORD || 'postgres',
-    database: process.env.DB_NAME || 'ion_gift_card',
-  },
-  pool: resolvePoolConfig(process.env),
-};
+const config = createKnexConfig(ConfigurationService.fromEnv().getDatabaseConfig());
 
 export default config;

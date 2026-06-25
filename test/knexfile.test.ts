@@ -1,20 +1,30 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { resolvePoolConfig } from '../knexfile.ts';
+import { createKnexConfig } from '../knexfile.ts';
 
-test('Knex uses conservative serverless pool defaults', () => {
-  assert.deepEqual(resolvePoolConfig({}), {
-    min: 0,
-    max: 2,
-  });
-});
-
-test('Knex pool size can be configured through ENV', () => {
-  assert.deepEqual(resolvePoolConfig({
-    DB_POOL_MIN: '1',
-    DB_POOL_MAX: '6',
+test('Knex config is created from typed database configuration', () => {
+  assert.deepEqual(createKnexConfig({
+    host: 'db.internal',
+    port: 5433,
+    user: 'app',
+    password: 'secret',
+    name: 'gift_cards',
+    pool: {
+      min: 1,
+      max: 6,
+    },
   }), {
-    min: 1,
-    max: 6,
+    client: 'pg',
+    connection: {
+      host: 'db.internal',
+      port: 5433,
+      user: 'app',
+      password: 'secret',
+      database: 'gift_cards',
+    },
+    pool: {
+      min: 1,
+      max: 6,
+    },
   });
 });

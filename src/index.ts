@@ -1,17 +1,19 @@
 import Fastify from 'fastify';
 import { registerRoutes } from './api/routes.ts';
-import { resolveApiPort } from './api/server-config.ts';
+import { resolveApiListenOptions } from './api/server-config.ts';
+import { ConfigurationService } from './configuration/configuration-service.ts';
 
 const app = Fastify({ logger: true });
+const configurationService = ConfigurationService.fromEnv();
+const apiConfig = configurationService.getApiConfig();
 
-const PORT = resolveApiPort(process.env);
-const HOST = process.env.API_HOST || '0.0.0.0';
+const listenOptions = resolveApiListenOptions(apiConfig);
 
 await registerRoutes(app);
 
 try {
-  await app.listen({ port: PORT, host: HOST });
-  console.log(`🚀 Server running at http://${HOST}:${PORT}`);
+  await app.listen(listenOptions);
+  console.log(`🚀 Server running at http://${listenOptions.host}:${listenOptions.port}`);
 } catch (err) {
   app.log.error(err);
   process.exit(1);

@@ -13,8 +13,7 @@ import {
   parsePendingMenuActionInput,
   type PendingMenuAction,
 } from './pending-menu-action.ts';
-
-const webAppUrl = process.env.WEB_APP_URL;
+import type { TelegramConfig } from '../configuration/configuration-service.ts';
 
 interface SessionData {
   action?: PendingMenuAction;
@@ -37,30 +36,22 @@ const botCommands = [
   { command: 'history', description: 'История операций' },
 ];
 
-function getTelegramBotToken() {
-  const token = process.env.TELEGRAM_BOT_TOKEN;
-  if (!token) {
-    throw new Error('TELEGRAM_BOT_TOKEN is required');
-  }
-  return token;
-}
-
-export function createBot() {
-  const bot = new Bot<MyContext>(getTelegramBotToken());
+export function createBot(telegramConfig: TelegramConfig) {
+  const bot = new Bot<MyContext>(telegramConfig.botToken);
   bot.use(session({ initial: (): SessionData => ({}) }));
-  registerBotHandlers(bot);
+  registerBotHandlers(bot, telegramConfig);
   return bot;
 }
 
-export async function configureBotApi(bot: Bot<MyContext>) {
+export async function configureBotApi(bot: Bot<MyContext>, telegramConfig: TelegramConfig) {
   await bot.api.setMyCommands(botCommands);
 
-  if (webAppUrl) {
+  if (telegramConfig.webAppUrl) {
     await bot.api.setChatMenuButton({
       menu_button: {
         type: 'web_app',
         text: 'Сканировать QR',
-        web_app: { url: webAppUrl },
+        web_app: { url: telegramConfig.webAppUrl },
       },
     });
   }
@@ -91,12 +82,15 @@ function scanButtonText(action: ScanAction) {
   }
 }
 
-function scanKeyboard(params: ScanWebAppParams = { action: 'balance' }) {
-  if (!webAppUrl) {
+function scanKeyboard(telegramConfig: TelegramConfig, params: ScanWebAppParams = { action: 'balance' }) {
+  if (!telegramConfig.webAppUrl) {
     return undefined;
   }
 
-  return new InlineKeyboard().webApp(scanButtonText(params.action), buildScanWebAppUrl(webAppUrl, params));
+  return new InlineKeyboard().webApp(
+    scanButtonText(params.action),
+    buildScanWebAppUrl(telegramConfig.webAppUrl, params)
+  );
 }
 
 function mainMenuKeyboard() {
@@ -114,8 +108,14 @@ function mainMenuKeyboard() {
     .resized();
 }
 
-async function replyScanPrompt(ctx: MyContext, message: string, params: ScanWebAppParams, fallback: string) {
-  const keyboard = scanKeyboard(params);
+async function replyScanPrompt(
+  ctx: MyContext,
+  telegramConfig: TelegramConfig,
+  message: string,
+  params: ScanWebAppParams,
+  fallback: string
+) {
+  const keyboard = scanKeyboard(telegramConfig, params);
   if (!keyboard) {
     await ctx.reply(`❌ Сканирование QR не настроено. ${fallback}`);
     return;
@@ -245,7 +245,7 @@ async function replyHistory(ctx: MyContext, code: string) {
   }
 }
 
-async function handleMenuButton(ctx: MyContext, text: string) {
+async function handleMenuButton(ctx: MyContext, text: string, telegramConfig: TelegramConfig) {
   const action = parseMenuButton(text);
   if (!action) {
     return false;
@@ -256,6 +256,7 @@ async function handleMenuButton(ctx: MyContext, text: string) {
   if (action === 'balance') {
     await replyScanPrompt(
       ctx,
+      telegramConfig,
       'Отсканируйте QR-код карты для проверки баланса:',
       { action: 'balance' },
       'Укажите код вручную: /balance <код>'
@@ -266,6 +267,7 @@ async function handleMenuButton(ctx: MyContext, text: string) {
   if (action === 'history') {
     await replyScanPrompt(
       ctx,
+      telegramConfig,
       'Отсканируйте QR-код карты для просмотра истории:',
       { action: 'history' },
       'Укажите код вручную: /history <код>'
@@ -281,6 +283,7 @@ async function handleMenuButton(ctx: MyContext, text: string) {
   if (action === 'link') {
     await replyScanPrompt(
       ctx,
+      telegramConfig,
       'Отсканируйте QR-код карты для привязки:',
       { action: 'link' },
       'Укажите код вручную: /link <код>'
@@ -302,7 +305,7 @@ async function handleMenuButton(ctx: MyContext, text: string) {
   return true;
 }
 
-async function handlePendingMenuAction(ctx: MyContext, text: string) {
+async function handlePendingMenuAction(ctx: MyContext, text: string, telegramConfig: TelegramConfig) {
   const pending = parsePendingMenuActionInput(ctx.session.action, text);
   if (!pending.handled) {
     return false;
@@ -318,6 +321,7 @@ async function handlePendingMenuAction(ctx: MyContext, text: string) {
   if (pending.action === 'debit') {
     await replyScanPrompt(
       ctx,
+      telegramConfig,
       `Отсканируйте QR-код карты для списания ${pending.amount} ₽:`,
       { action: 'debit', amount: pending.amount, description: pending.description },
       'Укажите код вручную: /debit <код> <сумма> [описание]'
@@ -328,6 +332,7 @@ async function handlePendingMenuAction(ctx: MyContext, text: string) {
   if (pending.action === 'credit') {
     await replyScanPrompt(
       ctx,
+      telegramConfig,
       `Отсканируйте QR-код карты для пополнения на ${pending.amount} ₽:`,
       { action: 'credit', amount: pending.amount, description: pending.description },
       'Укажите код вручную: /credit <код> <сумма> [описание]'
@@ -352,7 +357,7 @@ async function handlePendingMenuAction(ctx: MyContext, text: string) {
   return true;
 }
 
-function registerBotHandlers(bot: Bot<MyContext>) {
+function registerBotHandlers(bot: Bot<MyContext>, telegramConfig: TelegramConfig) {
 // Команда /start
 bot.command('start', async (ctx) => {
   ctx.session.action = undefined;
@@ -396,6 +401,7 @@ bot.command('link', async (ctx) => {
   if (!code) {
     await replyScanPrompt(
       ctx,
+      telegramConfig,
       'Отсканируйте QR-код карты для привязки:',
       { action: 'link' },
       'Укажите код вручную: /link <код>'
@@ -497,6 +503,7 @@ bot.command('debit', async (ctx) => {
 
   await replyScanPrompt(
     ctx,
+    telegramConfig,
     `Отсканируйте QR-код карты для списания ${scanAmount} ₽:`,
     { action: 'debit', amount: scanAmount, description: parts.slice(1).join(' ') || undefined },
     'Укажите код вручную: /debit <код> <сумма> [описание]'
@@ -539,6 +546,7 @@ bot.command('credit', async (ctx) => {
 
   await replyScanPrompt(
     ctx,
+    telegramConfig,
     `Отсканируйте QR-код карты для пополнения на ${scanAmount} ₽:`,
     { action: 'credit', amount: scanAmount, description: parts.slice(1).join(' ') || undefined },
     'Укажите код вручную: /credit <код> <сумма> [описание]'
@@ -632,8 +640,8 @@ bot.on('message:web_app_data', async (ctx) => {
 bot.on('message:text', async (ctx) => {
   const code = ctx.message.text.trim();
   if (code.startsWith('/')) return;
-  if (await handleMenuButton(ctx, code)) return;
-  if (await handlePendingMenuAction(ctx, code)) return;
+  if (await handleMenuButton(ctx, code, telegramConfig)) return;
+  if (await handlePendingMenuAction(ctx, code, telegramConfig)) return;
 
   try {
     const { balance } = await cardService.getBalance(code);

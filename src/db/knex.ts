@@ -1,4 +1,7 @@
 import knex from 'knex';
-import config from '../../knexfile.ts';
+import { createKnexConfig } from '../../knexfile.ts';
+import { ConfigurationService } from '../configuration/configuration-service.ts';
 
-export const db = knex(config);
+const configurationService = ConfigurationService.fromEnv();
+
+export const db = knex(createKnexConfig(configurationService.getDatabaseConfig()));
