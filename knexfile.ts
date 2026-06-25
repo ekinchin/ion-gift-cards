@@ -1,5 +1,12 @@
 import type { Knex } from 'knex';
 
+export function resolvePoolConfig(env: NodeJS.ProcessEnv) {
+  return {
+    min: Number(env.DB_POOL_MIN ?? 0),
+    max: Number(env.DB_POOL_MAX ?? 2),
+  };
+}
+
 const config: Knex.Config = {
   client: 'pg',
   connection: {
@@ -9,10 +16,7 @@ const config: Knex.Config = {
     password: process.env.DB_PASSWORD || 'postgres',
     database: process.env.DB_NAME || 'ion_gift_card',
   },
-  pool: {
-    min: 2,
-    max: 10,
-  },
+  pool: resolvePoolConfig(process.env),
 };
 
 export default config;

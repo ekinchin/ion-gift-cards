@@ -59,13 +59,13 @@ git commit -m "feat: support serverless api port"
 
 **Files:**
 - Modify: `knexfile.ts`
-- Test: `npm run typecheck`
+- Test: `test/knexfile.test.ts`, `npm run typecheck`
 
-- [ ] **Step 1: Inspect current Knex config**
+- [x] **Step 1: Inspect current Knex config**
 
 Open `knexfile.ts` and identify where `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, and `DB_PASSWORD` are read.
 
-- [ ] **Step 2: Add conservative pool defaults**
+- [x] **Step 2: Add conservative pool defaults**
 
 Configure Knex with a small pool:
 
@@ -78,7 +78,7 @@ pool: {
 
 Keep environment overrides so local and migration workloads can increase the pool by setting `DB_POOL_MIN` and `DB_POOL_MAX`.
 
-- [ ] **Step 3: Run verification**
+- [x] **Step 3: Run verification**
 
 Run:
 
