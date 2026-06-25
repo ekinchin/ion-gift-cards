@@ -10,7 +10,7 @@
     "dev": "node --experimental-strip-types --watch src/index.ts",
     "typecheck": "tsc --noEmit",
     "db:migrate": "node --experimental-strip-types src/db/migrations/run.ts",
-    "bot": "node --experimental-strip-types src/bot/index.ts",
+    "bot": "node --experimental-strip-types src/bot/long-polling.ts",
     "test": "node --experimental-strip-types --test test/**/*.test.ts"
   },
   "dependencies": {

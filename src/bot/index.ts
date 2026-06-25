@@ -14,11 +14,6 @@ import {
   type PendingMenuAction,
 } from './pending-menu-action.ts';
 
-const token = process.env.TELEGRAM_BOT_TOKEN;
-if (!token) {
-  throw new Error('TELEGRAM_BOT_TOKEN is required');
-}
-
 const webAppUrl = process.env.WEB_APP_URL;
 
 interface SessionData {
@@ -26,11 +21,7 @@ interface SessionData {
   cardCode?: string;
 }
 
-type MyContext = Context & SessionFlavor<SessionData>;
-
-const bot = new Bot<MyContext>(token);
-
-bot.use(session({ initial: (): SessionData => ({}) }));
+export type MyContext = Context & SessionFlavor<SessionData>;
 
 const botCommands = [
   { command: 'start', description: 'Начало работы' },
@@ -45,6 +36,35 @@ const botCommands = [
   { command: 'create', description: 'Создать карту' },
   { command: 'history', description: 'История операций' },
 ];
+
+function getTelegramBotToken() {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  if (!token) {
+    throw new Error('TELEGRAM_BOT_TOKEN is required');
+  }
+  return token;
+}
+
+export function createBot() {
+  const bot = new Bot<MyContext>(getTelegramBotToken());
+  bot.use(session({ initial: (): SessionData => ({}) }));
+  registerBotHandlers(bot);
+  return bot;
+}
+
+export async function configureBotApi(bot: Bot<MyContext>) {
+  await bot.api.setMyCommands(botCommands);
+
+  if (webAppUrl) {
+    await bot.api.setChatMenuButton({
+      menu_button: {
+        type: 'web_app',
+        text: 'Сканировать QR',
+        web_app: { url: webAppUrl },
+      },
+    });
+  }
+}
 
 // Проверка оператора
 async function getOperator(telegramId: number) {
@@ -332,6 +352,7 @@ async function handlePendingMenuAction(ctx: MyContext, text: string) {
   return true;
 }
 
+function registerBotHandlers(bot: Bot<MyContext>) {
 // Команда /start
 bot.command('start', async (ctx) => {
   ctx.session.action = undefined;
@@ -621,19 +642,4 @@ bot.on('message:text', async (ctx) => {
     await ctx.reply('❌ Карта не найдена. Проверьте код и попробуйте снова.');
   }
 });
-
-// Запуск бота
-await bot.api.setMyCommands(botCommands);
-
-if (webAppUrl) {
-  await bot.api.setChatMenuButton({
-    menu_button: {
-      type: 'web_app',
-      text: 'Сканировать QR',
-      web_app: { url: webAppUrl },
-    },
-  });
 }
-
-bot.start();
-console.log('🤖 Bot started!');

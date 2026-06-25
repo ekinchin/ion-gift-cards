@@ -56,7 +56,7 @@ services:
   bot:
     build:
       context: .
-      target: bot
+      target: bot-long-polling
     environment:
       DB_HOST: postgres
       DB_PORT: 5432

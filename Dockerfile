@@ -13,6 +13,11 @@ FROM base AS api
 EXPOSE 3000
 CMD ["node", "--experimental-strip-types", "src/index.ts"]
 
-# Telegram Bot
-FROM base AS bot
-CMD ["node", "--experimental-strip-types", "src/bot/index.ts"]
+# Telegram Bot (local long polling)
+FROM base AS bot-long-polling
+CMD ["node", "--experimental-strip-types", "src/bot/long-polling.ts"]
+
+# Telegram Bot (production webhook)
+FROM base AS bot-webhook
+EXPOSE 3000
+CMD ["node", "--experimental-strip-types", "src/bot/webhook.ts"]
