@@ -1,9 +1,10 @@
 import Fastify from 'fastify';
 import { registerRoutes } from './api/routes.ts';
+import { resolveApiPort } from './api/server-config.ts';
 
 const app = Fastify({ logger: true });
 
-const PORT = Number(process.env.API_PORT) || 3000;
+const PORT = resolveApiPort(process.env);
 const HOST = process.env.API_HOST || '0.0.0.0';
 
 await registerRoutes(app);

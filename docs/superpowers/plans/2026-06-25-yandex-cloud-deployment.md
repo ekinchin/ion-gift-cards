@@ -12,7 +12,7 @@
 
 ## File Structure
 
-- Modify `src/index.ts`: read `PORT` before `API_PORT`.
+- Modify `src/index.ts`: read only `PORT`.
 - Modify `knexfile.ts`: reduce default serverless pool pressure while preserving test/local behavior.
 - Refactor `src/bot/index.ts`: move bot construction and command registration into reusable exports.
 - Create `src/bot/long-polling.ts`: current local bot startup with `bot.start()`.
@@ -21,24 +21,24 @@
 - Modify `docker-compose.yml`: point local bot service at the long-polling target.
 - Create `.github/workflows/release.yml`: tag-based release workflow.
 - Modify `README.md`: document production deployment and required secrets.
-- Add tests near existing bot/API tests for port selection and webhook secret validation.
+- Add tests near existing bot/API tests for API port selection and webhook secret validation.
 
 ### Task 1: API Serverless Port Compatibility
 
 **Files:**
 - Modify: `src/index.ts`
-- Test: verify with `npm run typecheck`.
+- Test: `test/api.server-config.test.ts`, verify with `npm run typecheck`.
 
-- [ ] **Step 1: Extract port resolution**
+- [x] **Step 1: Extract port resolution**
 
-Change `src/index.ts` so `PORT` has priority over `API_PORT`:
+Change `src/index.ts` so the API reads only `PORT`:
 
 ```ts
-const PORT = Number(process.env.PORT ?? process.env.API_PORT ?? 3000);
+const PORT = Number(process.env.PORT ?? 3000);
 const HOST = process.env.API_HOST || '0.0.0.0';
 ```
 
-- [ ] **Step 2: Run verification**
+- [x] **Step 2: Run verification**
 
 Run:
 
@@ -48,7 +48,7 @@ npm run typecheck
 
 Expected: TypeScript passes.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add src/index.ts
@@ -103,7 +103,7 @@ git commit -m "feat: tune database pool for serverless"
 - Create: `src/bot/long-polling.ts`
 - Test: existing `test/bot.*.test.ts`
 
-- [ ] **Step 1: Export bot factory**
+- [x] **Step 1: Export bot factory**
 
 Move bot creation, middleware, commands, menu setup, and handlers into exported functions from `src/bot/index.ts`:
 
@@ -131,7 +131,7 @@ export async function configureBotApi(bot: Bot<MyContext>) {
 
 Remove direct `bot.start()` from `src/bot/index.ts`.
 
-- [ ] **Step 2: Add long-polling entrypoint**
+- [x] **Step 2: Add long-polling entrypoint**
 
 Create `src/bot/long-polling.ts`:
 
@@ -146,7 +146,7 @@ bot.start();
 console.log('Bot long polling started');
 ```
 
-- [ ] **Step 3: Update local Docker command**
+- [x] **Step 3: Update local Docker command**
 
 Make the local bot Docker target run:
 
@@ -154,7 +154,7 @@ Make the local bot Docker target run:
 node --experimental-strip-types src/bot/long-polling.ts
 ```
 
-- [ ] **Step 4: Run bot tests**
+- [x] **Step 4: Run bot tests**
 
 Run:
 
@@ -178,7 +178,7 @@ git commit -m "refactor: split bot construction from long polling"
 - Create: `src/bot/webhook.ts`
 - Test: create `test/bot.webhook.test.ts`
 
-- [ ] **Step 1: Write webhook secret validation test**
+- [x] **Step 1: Write webhook secret validation test**
 
 Create `test/bot.webhook.test.ts` with tests for missing and invalid `X-Telegram-Bot-Api-Secret-Token`.
 
@@ -188,7 +188,7 @@ Expected behavior:
 POST /webhook without valid secret -> 401
 ```
 
-- [ ] **Step 2: Implement Fastify webhook app**
+- [x] **Step 2: Implement Fastify webhook app**
 
 Create `src/bot/webhook.ts`:
 
@@ -225,7 +225,7 @@ await app.listen({ port, host: '0.0.0.0' });
 
 Extract `createWebhookApp(bot, secret)` from this file and test that helper with `app.inject(...)` so the test does not start a network listener.
 
-- [ ] **Step 3: Run focused tests**
+- [x] **Step 3: Run focused tests**
 
 Run:
 
@@ -249,7 +249,7 @@ git commit -m "feat: add telegram webhook runtime"
 - Modify: `Dockerfile`
 - Modify: `docker-compose.yml`
 
-- [ ] **Step 1: Update Dockerfile targets**
+- [x] **Step 1: Update Dockerfile targets**
 
 Keep existing `api` and `migrations` targets. Change bot targets to make production and local mode explicit:
 
@@ -262,7 +262,7 @@ EXPOSE 3000
 CMD ["node", "--experimental-strip-types", "src/bot/webhook.ts"]
 ```
 
-- [ ] **Step 2: Update local compose**
+- [x] **Step 2: Update local compose**
 
 Point the `bot` service in `docker-compose.yml` to:
 
@@ -429,4 +429,4 @@ docker build --target migrations -t ion-gift-card-migrations:verify .
 
 - [ ] Confirm the release workflow is syntactically valid in GitHub Actions.
 - [ ] Confirm local Docker Compose still starts PostgreSQL, migrations, API, and long-polling bot.
-- [ ] Confirm production bot webhook rejects invalid Telegram secret headers.
+- [x] Confirm production bot webhook rejects invalid Telegram secret headers.

@@ -79,7 +79,7 @@ The API remains a Fastify HTTP service.
 
 Required adaptation:
 
-- read `PORT` before `API_PORT`, because Yandex Serverless Containers inject the runtime port through `PORT`;
+- read only `PORT`, because Yandex Serverless Containers inject the runtime port through `PORT`;
 - keep host `0.0.0.0`;
 - keep `/health` available for platform checks.
 
