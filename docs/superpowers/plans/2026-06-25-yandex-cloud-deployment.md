@@ -296,7 +296,7 @@ git commit -m "feat: add production docker targets"
 **Files:**
 - Create: `.github/workflows/release.yml`
 
-- [ ] **Step 1: Add tag trigger and checks**
+- [x] **Step 1: Add tag trigger and checks**
 
 Create a workflow triggered by:
 
@@ -315,7 +315,7 @@ npm run typecheck
 npm test
 ```
 
-- [ ] **Step 2: Add Yandex registry login**
+- [x] **Step 2: Add Yandex registry login**
 
 Use `yc-actions/yc-cr-login` with:
 
@@ -323,7 +323,7 @@ Use `yc-actions/yc-cr-login` with:
 yc-sa-json-credentials: ${{ secrets.YC_SA_JSON_CREDENTIALS }}
 ```
 
-- [ ] **Step 3: Build and push images**
+- [x] **Step 3: Build and push images**
 
 Push these images:
 
@@ -333,7 +333,7 @@ cr.yandex/${{ secrets.YC_REGISTRY_ID }}/ion-gift-card-bot-webhook:${{ github.ref
 cr.yandex/${{ secrets.YC_REGISTRY_ID }}/ion-gift-card-migrations:${{ github.ref_name }}
 ```
 
-- [ ] **Step 4: Run migrations before deploy**
+- [x] **Step 4: Run migrations before deploy**
 
 Run the migrations image as a CI step with production DB secrets supplied from GitHub environment or fetched from Lockbox. The command must execute:
 
@@ -341,11 +341,11 @@ Run the migrations image as a CI step with production DB secrets supplied from G
 node --experimental-strip-types src/db/migrations/run.ts
 ```
 
-- [ ] **Step 5: Deploy serverless containers**
+- [x] **Step 5: Deploy serverless containers**
 
 Deploy API and bot using `yc-actions/yc-sls-container-deploy`. API and bot revisions must receive Lockbox-backed env vars.
 
-- [ ] **Step 6: Register Telegram webhook**
+- [x] **Step 6: Register Telegram webhook**
 
 After bot deployment, call:
 
@@ -355,7 +355,7 @@ curl "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/setWebhook" \
   -d "secret_token=$TELEGRAM_WEBHOOK_SECRET"
 ```
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add .github/workflows/release.yml
