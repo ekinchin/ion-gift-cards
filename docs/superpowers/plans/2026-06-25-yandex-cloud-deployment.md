@@ -427,6 +427,6 @@ docker build --target bot-webhook -t ion-gift-card-bot-webhook:verify .
 docker build --target migrations -t ion-gift-card-migrations:verify .
 ```
 
-- [ ] Confirm the release workflow is syntactically valid in GitHub Actions.
+- [x] Confirm the release workflow is syntactically valid in GitHub Actions.
 - [x] Confirm local Docker Compose still starts PostgreSQL, migrations, API, and long-polling bot.
 - [x] Confirm production bot webhook rejects invalid Telegram secret headers.
