@@ -368,7 +368,7 @@ git commit -m "ci: deploy release tags to yandex cloud"
 - Modify: `README.md`
 - Create: `docs/deployment-yandex-cloud.md`
 
-- [ ] **Step 1: Document infrastructure prerequisites**
+- [x] **Step 1: Document infrastructure prerequisites**
 
 Document required Yandex resources:
 
@@ -382,11 +382,11 @@ API Serverless Container
 Bot Serverless Container
 ```
 
-- [ ] **Step 2: Document required secrets**
+- [x] **Step 2: Document required secrets**
 
 Document Lockbox runtime keys and GitHub repository secrets from the design document.
 
-- [ ] **Step 3: Document release flow**
+- [x] **Step 3: Document release flow**
 
 Document:
 
@@ -397,7 +397,7 @@ git push origin v1.2.3
 
 Explain that GitHub Actions builds images, runs migrations, deploys revisions, and registers Telegram webhook.
 
-- [ ] **Step 4: Run final verification**
+- [x] **Step 4: Run final verification**
 
 Run:
 
@@ -408,7 +408,7 @@ npm test
 
 Expected: both pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add README.md docs/deployment-yandex-cloud.md

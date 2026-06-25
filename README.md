@@ -181,6 +181,10 @@ npm test
 npm audit --omit=dev
 ```
 
+## Production deployment
+
+Production deployment to Yandex Cloud is described in [docs/deployment-yandex-cloud.md](docs/deployment-yandex-cloud.md). Releases are tag-based and run through GitHub Actions.
+
 ## Добавление оператора
 
 ```sql
