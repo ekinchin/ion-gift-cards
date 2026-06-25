@@ -89,7 +89,7 @@ npm test
 
 Expected: typecheck and tests pass.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add knexfile.ts
@@ -165,7 +165,7 @@ npm run typecheck
 
 Expected: bot tests and typecheck pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/bot/index.ts src/bot/long-polling.ts Dockerfile docker-compose.yml
@@ -236,7 +236,7 @@ npm run typecheck
 
 Expected: webhook tests and typecheck pass.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/bot/webhook.ts test/bot.webhook.test.ts
@@ -284,7 +284,7 @@ docker build --target migrations -t ion-gift-card-migrations:local .
 
 Expected: all three images build.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add Dockerfile docker-compose.yml
