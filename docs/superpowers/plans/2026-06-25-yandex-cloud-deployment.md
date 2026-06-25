@@ -284,7 +284,7 @@ docker build --target migrations -t ion-gift-card-migrations:local .
 
 Expected: all three images build.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add Dockerfile docker-compose.yml
