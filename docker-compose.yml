@@ -63,6 +63,7 @@ services:
       DB_USER: postgres
       DB_PASSWORD: postgres
       DB_NAME: ion_gift_card
+      TELEGRAM_MODE: polling
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
       WEB_APP_URL: ${WEB_APP_URL:-}
     depends_on:

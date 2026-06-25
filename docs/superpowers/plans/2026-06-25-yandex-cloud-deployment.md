@@ -272,7 +272,7 @@ target: bot-long-polling
 
 Do not require `TELEGRAM_WEBHOOK_SECRET` for local long polling.
 
-- [ ] **Step 3: Build all targets locally**
+- [x] **Step 3: Build all targets locally**
 
 Run:
 
@@ -284,7 +284,7 @@ docker build --target migrations -t ion-gift-card-migrations:local .
 
 Expected: all three images build.
 
-- [x] **Step 4: Commit**
+- [ ] **Step 4: Commit**
 
 ```bash
 git add Dockerfile docker-compose.yml
