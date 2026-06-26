@@ -49,6 +49,42 @@ jobs:
         with:
           yc-sa-id: ${{ vars.YC_CI_SA_ID }}
 
+      - name: Install Yandex Cloud CLI
+        run: |
+          curl --fail --silent --show-error --location https://storage.yandexcloud.net/yandexcloud-yc/install.sh | bash -s -- -a
+          echo "$HOME/yandex-cloud/bin" >> "$GITHUB_PATH"
+
+      - name: Configure Yandex Cloud CLI
+        env:
+          YC_IAM_TOKEN: ${{ steps.iam-token.outputs.iam-token }}
+        run: |
+          yc config set token "$YC_IAM_TOKEN"
+          yc config set folder-id "${{ vars.YC_FOLDER_ID }}"
+
+      - name: Read release secrets from Lockbox
+        env:
+          YC_LOCKBOX_SECRET_ID: ${{ vars.YC_LOCKBOX_SECRET_ID }}
+        run: |
+          set -euo pipefail
+
+          export_secret() {
+            local key="$1"
+            local value
+
+            value="$(yc lockbox payload get --id "$YC_LOCKBOX_SECRET_ID" --key "$key")"
+
+            echo "::add-mask::$value"
+            echo "$key=$value" >> "$GITHUB_ENV"
+          }
+
+          export_secret DB_HOST
+          export_secret DB_PORT
+          export_secret DB_NAME
+          export_secret DB_USER
+          export_secret DB_PASSWORD
+          export_secret TELEGRAM_BOT_TOKEN
+          export_secret TELEGRAM_WEBHOOK_SECRET
+
       - name: Login to Yandex Cloud Container Registry
         uses: yc-actions/yc-cr-login@v3
         with:
@@ -71,11 +107,6 @@ jobs:
 
       - name: Run database migrations
         env:
-          DB_HOST: ${{ secrets.DB_HOST }}
-          DB_PORT: ${{ secrets.DB_PORT }}
-          DB_NAME: ${{ secrets.DB_NAME }}
-          DB_USER: ${{ secrets.DB_USER }}
-          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
           DB_POOL_MIN: ${{ vars.DB_POOL_MIN || '0' }}
           DB_POOL_MAX: ${{ vars.DB_POOL_MAX || '2' }}
         run: |
@@ -144,8 +175,6 @@ jobs:
 
       - name: Register Telegram webhook
         env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_WEBHOOK_SECRET: ${{ secrets.TELEGRAM_WEBHOOK_SECRET }}
           TELEGRAM_WEBHOOK_URL: ${{ vars.TELEGRAM_WEBHOOK_URL }}
         run: |
           curl --fail --show-error --silent "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/setWebhook" \
