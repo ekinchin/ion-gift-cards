@@ -22,10 +22,19 @@ test('Knex config is created from typed database configuration', () => {
       user: 'app',
       password: 'secret',
       database: 'gift_cards',
+      keepAlive: true,
+      keepAliveInitialDelayMillis: 1000,
+      connectionTimeoutMillis: 5000,
     },
     pool: {
       min: 1,
       max: 6,
+      idleTimeoutMillis: 5000,
+      reapIntervalMillis: 1000,
+      acquireTimeoutMillis: 10000,
+      createTimeoutMillis: 10000,
+      destroyTimeoutMillis: 5000,
+      createRetryIntervalMillis: 200,
     },
   });
 });
@@ -48,6 +57,9 @@ test('Knex config passes SSL settings to PostgreSQL connection', () => {
     user: 'app',
     password: 'secret',
     database: 'gift_cards',
+    keepAlive: true,
+    keepAliveInitialDelayMillis: 1000,
+    connectionTimeoutMillis: 5000,
     ssl: {
       rejectUnauthorized: false,
     },

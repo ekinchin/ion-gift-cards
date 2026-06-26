@@ -8,6 +8,9 @@ export function createKnexConfig(databaseConfig: DatabaseConfig): Knex.Config {
     user: databaseConfig.user,
     password: databaseConfig.password,
     database: databaseConfig.name,
+    keepAlive: true,
+    keepAliveInitialDelayMillis: 1000,
+    connectionTimeoutMillis: 5000,
   };
 
   if (databaseConfig.ssl) {
@@ -19,7 +22,15 @@ export function createKnexConfig(databaseConfig: DatabaseConfig): Knex.Config {
   return {
     client: 'pg',
     connection,
-    pool: databaseConfig.pool,
+    pool: {
+      ...databaseConfig.pool,
+      idleTimeoutMillis: 5000,
+      reapIntervalMillis: 1000,
+      acquireTimeoutMillis: 10000,
+      createTimeoutMillis: 10000,
+      destroyTimeoutMillis: 5000,
+      createRetryIntervalMillis: 200,
+    },
   };
 }
 
