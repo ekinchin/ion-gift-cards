@@ -10,10 +10,10 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  REGISTRY: cr.yandex/${{ secrets.YC_REGISTRY_ID }}
-  API_IMAGE: cr.yandex/${{ secrets.YC_REGISTRY_ID }}/ion-gift-card-api:${{ github.ref_name }}
-  BOT_WEBHOOK_IMAGE: cr.yandex/${{ secrets.YC_REGISTRY_ID }}/ion-gift-card-bot-webhook:${{ github.ref_name }}
-  MIGRATIONS_IMAGE: cr.yandex/${{ secrets.YC_REGISTRY_ID }}/ion-gift-card-migrations:${{ github.ref_name }}
+  REGISTRY: cr.yandex/${{ vars.YC_REGISTRY_ID }}
+  API_IMAGE: cr.yandex/${{ vars.YC_REGISTRY_ID }}/ion-gift-card-api:${{ github.ref_name }}
+  BOT_WEBHOOK_IMAGE: cr.yandex/${{ vars.YC_REGISTRY_ID }}/ion-gift-card-bot-webhook:${{ github.ref_name }}
+  MIGRATIONS_IMAGE: cr.yandex/${{ vars.YC_REGISTRY_ID }}/ion-gift-card-migrations:${{ github.ref_name }}
 
 jobs:
   release:
@@ -22,6 +22,7 @@ jobs:
     environment: production
     permissions:
       contents: read
+      id-token: write
 
     steps:
       - name: Check out repository
@@ -42,10 +43,52 @@ jobs:
       - name: Test
         run: npm test
 
+      - name: Get Yandex Cloud IAM token
+        id: iam-token
+        uses: docker://ghcr.io/yc-actions/yc-iam-token-fed:1.0.0
+        with:
+          yc-sa-id: ${{ vars.YC_CI_SA_ID }}
+
+      - name: Install Yandex Cloud CLI
+        run: |
+          curl --fail --silent --show-error --location https://storage.yandexcloud.net/yandexcloud-yc/install.sh | bash -s -- -a
+          echo "$HOME/yandex-cloud/bin" >> "$GITHUB_PATH"
+
+      - name: Configure Yandex Cloud CLI
+        env:
+          YC_IAM_TOKEN: ${{ steps.iam-token.outputs.iam-token }}
+        run: |
+          yc config set token "$YC_IAM_TOKEN"
+          yc config set folder-id "${{ vars.YC_FOLDER_ID }}"
+
+      - name: Read release secrets from Lockbox
+        env:
+          YC_LOCKBOX_SECRET_ID: ${{ vars.YC_LOCKBOX_SECRET_ID }}
+        run: |
+          set -euo pipefail
+
+          export_secret() {
+            local key="$1"
+            local value
+
+            value="$(yc lockbox payload get --id "$YC_LOCKBOX_SECRET_ID" --key "$key")"
+
+            echo "::add-mask::$value"
+            echo "$key=$value" >> "$GITHUB_ENV"
+          }
+
+          export_secret DB_HOST
+          export_secret DB_PORT
+          export_secret DB_NAME
+          export_secret DB_USER
+          export_secret DB_PASSWORD
+          export_secret TELEGRAM_BOT_TOKEN
+          export_secret TELEGRAM_WEBHOOK_SECRET
+
       - name: Login to Yandex Cloud Container Registry
         uses: yc-actions/yc-cr-login@v3
         with:
-          yc-sa-json-credentials: ${{ secrets.YC_SA_JSON_CREDENTIALS }}
+          yc-iam-token: ${{ steps.iam-token.outputs.iam-token }}
 
       - name: Build and push API image
         run: |
@@ -64,11 +107,6 @@ jobs:
 
       - name: Run database migrations
         env:
-          DB_HOST: ${{ secrets.DB_HOST }}
-          DB_PORT: ${{ secrets.DB_PORT }}
-          DB_NAME: ${{ secrets.DB_NAME }}
-          DB_USER: ${{ secrets.DB_USER }}
-          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
           DB_POOL_MIN: ${{ vars.DB_POOL_MIN || '0' }}
           DB_POOL_MAX: ${{ vars.DB_POOL_MAX || '2' }}
         run: |
@@ -86,10 +124,10 @@ jobs:
       - name: Deploy API container
         uses: yc-actions/yc-sls-container-deploy@v4
         with:
-          yc-sa-json-credentials: ${{ secrets.YC_SA_JSON_CREDENTIALS }}
-          folder-id: ${{ secrets.YC_FOLDER_ID }}
-          container-name: ${{ secrets.YC_API_CONTAINER_NAME }}
-          revision-service-account-id: ${{ secrets.YC_RUNTIME_SA_ID }}
+          yc-iam-token: ${{ steps.iam-token.outputs.iam-token }}
+          folder-id: ${{ vars.YC_FOLDER_ID }}
+          container-name: ${{ vars.YC_API_CONTAINER_NAME }}
+          revision-service-account-id: ${{ vars.YC_RUNTIME_SA_ID }}
           revision-image-url: ${{ env.API_IMAGE }}
           revision-cores: 1
           revision-memory: 512Mb
@@ -101,19 +139,19 @@ jobs:
             DB_POOL_MIN=${{ vars.DB_POOL_MIN || '0' }}
             DB_POOL_MAX=${{ vars.DB_POOL_MAX || '2' }}
           revision-secrets: |
-            DB_HOST=${{ secrets.YC_LOCKBOX_SECRET_ID }}/latest/DB_HOST
-            DB_PORT=${{ secrets.YC_LOCKBOX_SECRET_ID }}/latest/DB_PORT
-            DB_NAME=${{ secrets.YC_LOCKBOX_SECRET_ID }}/latest/DB_NAME
-            DB_USER=${{ secrets.YC_LOCKBOX_SECRET_ID }}/latest/DB_USER
-            DB_PASSWORD=${{ secrets.YC_LOCKBOX_SECRET_ID }}/latest/DB_PASSWORD
+            DB_HOST=${{ vars.YC_LOCKBOX_SECRET_ID }}/latest/DB_HOST
+            DB_PORT=${{ vars.YC_LOCKBOX_SECRET_ID }}/latest/DB_PORT
+            DB_NAME=${{ vars.YC_LOCKBOX_SECRET_ID }}/latest/DB_NAME
+            DB_USER=${{ vars.YC_LOCKBOX_SECRET_ID }}/latest/DB_USER
+            DB_PASSWORD=${{ vars.YC_LOCKBOX_SECRET_ID }}/latest/DB_PASSWORD
 
       - name: Deploy bot webhook container
         uses: yc-actions/yc-sls-container-deploy@v4
         with:
-          yc-sa-json-credentials: ${{ secrets.YC_SA_JSON_CREDENTIALS }}
-          folder-id: ${{ secrets.YC_FOLDER_ID }}
-          container-name: ${{ secrets.YC_BOT_CONTAINER_NAME }}
-          revision-service-account-id: ${{ secrets.YC_RUNTIME_SA_ID }}
+          yc-iam-token: ${{ steps.iam-token.outputs.iam-token }}
+          folder-id: ${{ vars.YC_FOLDER_ID }}
+          container-name: ${{ vars.YC_BOT_CONTAINER_NAME }}
+          revision-service-account-id: ${{ vars.YC_RUNTIME_SA_ID }}
           revision-image-url: ${{ env.BOT_WEBHOOK_IMAGE }}
           revision-cores: 1
           revision-memory: 512Mb
@@ -126,20 +164,18 @@ jobs:
             DB_POOL_MIN=${{ vars.DB_POOL_MIN || '0' }}
             DB_POOL_MAX=${{ vars.DB_POOL_MAX || '2' }}
           revision-secrets: |
-            DB_HOST=${{ secrets.YC_LOCKBOX_SECRET_ID }}/latest/DB_HOST
-            DB_PORT=${{ secrets.YC_LOCKBOX_SECRET_ID }}/latest/DB_PORT
-            DB_NAME=${{ secrets.YC_LOCKBOX_SECRET_ID }}/latest/DB_NAME
-            DB_USER=${{ secrets.YC_LOCKBOX_SECRET_ID }}/latest/DB_USER
-            DB_PASSWORD=${{ secrets.YC_LOCKBOX_SECRET_ID }}/latest/DB_PASSWORD
-            TELEGRAM_BOT_TOKEN=${{ secrets.YC_LOCKBOX_SECRET_ID }}/latest/TELEGRAM_BOT_TOKEN
-            TELEGRAM_WEBHOOK_SECRET=${{ secrets.YC_LOCKBOX_SECRET_ID }}/latest/TELEGRAM_WEBHOOK_SECRET
-            WEB_APP_URL=${{ secrets.YC_LOCKBOX_SECRET_ID }}/latest/WEB_APP_URL
+            DB_HOST=${{ vars.YC_LOCKBOX_SECRET_ID }}/latest/DB_HOST
+            DB_PORT=${{ vars.YC_LOCKBOX_SECRET_ID }}/latest/DB_PORT
+            DB_NAME=${{ vars.YC_LOCKBOX_SECRET_ID }}/latest/DB_NAME
+            DB_USER=${{ vars.YC_LOCKBOX_SECRET_ID }}/latest/DB_USER
+            DB_PASSWORD=${{ vars.YC_LOCKBOX_SECRET_ID }}/latest/DB_PASSWORD
+            TELEGRAM_BOT_TOKEN=${{ vars.YC_LOCKBOX_SECRET_ID }}/latest/TELEGRAM_BOT_TOKEN
+            TELEGRAM_WEBHOOK_SECRET=${{ vars.YC_LOCKBOX_SECRET_ID }}/latest/TELEGRAM_WEBHOOK_SECRET
+            WEB_APP_URL=${{ vars.YC_LOCKBOX_SECRET_ID }}/latest/WEB_APP_URL
 
       - name: Register Telegram webhook
         env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_WEBHOOK_SECRET: ${{ secrets.TELEGRAM_WEBHOOK_SECRET }}
-          TELEGRAM_WEBHOOK_URL: ${{ secrets.TELEGRAM_WEBHOOK_URL }}
+          TELEGRAM_WEBHOOK_URL: ${{ vars.TELEGRAM_WEBHOOK_URL }}
         run: |
           curl --fail --show-error --silent "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/setWebhook" \
             --data-urlencode "url=${TELEGRAM_WEBHOOK_URL}/webhook" \
