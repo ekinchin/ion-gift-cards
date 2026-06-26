@@ -181,6 +181,8 @@ jobs:
         env:
           TELEGRAM_WEBHOOK_URL: ${{ vars.TELEGRAM_WEBHOOK_URL }}
         run: |
+          webhook_base_url="${TELEGRAM_WEBHOOK_URL%/}"
+
           curl --fail --show-error --silent "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/setWebhook" \
-            --data-urlencode "url=${TELEGRAM_WEBHOOK_URL}/webhook" \
+            --data-urlencode "url=${webhook_base_url}/webhook" \
             --data-urlencode "secret_token=${TELEGRAM_WEBHOOK_SECRET}"

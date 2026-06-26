@@ -211,6 +211,10 @@ yc resource-manager folder add-access-binding "$YC_FOLDER_ID" \
 yc resource-manager folder add-access-binding "$YC_FOLDER_ID" \
   --role lockbox.payloadViewer \
   --service-account-id "$YC_CI_SA_ID"
+
+yc resource-manager folder add-access-binding "$YC_FOLDER_ID" \
+  --role lockbox.viewer \
+  --service-account-id "$YC_CI_SA_ID"
 ```
 
 Runtime service account:
@@ -265,6 +269,18 @@ yc serverless container create --name ion-gift-card-bot
 yc serverless container list
 ```
 
+Сделайте оба контейнера публично вызываемыми. Это нужно для Telegram webhook и внешних API/health checks:
+
+```bash
+yc serverless container add-access-binding ion-gift-card-api \
+  --role serverless-containers.invoker \
+  --all-users
+
+yc serverless container add-access-binding ion-gift-card-bot \
+  --role serverless-containers.invoker \
+  --all-users
+```
+
 Сохраните:
 
 ```text
@@ -273,7 +289,7 @@ YC_BOT_CONTAINER_NAME=ion-gift-card-bot
 TELEGRAM_WEBHOOK_URL=<bot_container_url_without_trailing_slash>
 ```
 
-`TELEGRAM_WEBHOOK_URL` - URL bot container из `yc serverless container list` или ваш домен, если вы будете ставить свой домен перед контейнером.
+`TELEGRAM_WEBHOOK_URL` - URL bot container из `yc serverless container list` или ваш домен, если вы будете ставить свой домен перед контейнером. Значение может быть со слэшем в конце или без него; release workflow нормализует URL перед регистрацией webhook.
 
 После того как станет известен `TELEGRAM_WEBHOOK_URL`, обновите `WEB_APP_URL` в Lockbox, если QR mini app должен открываться через production URL:
 

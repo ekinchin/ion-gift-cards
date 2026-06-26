@@ -37,7 +37,7 @@ Required Yandex Cloud resources:
 
 Use the VPC `network-id` that owns the PostgreSQL subnet. If the subnet is not in a network named `default`, using `--network-name default` during PostgreSQL creation can fail with `subnet "<subnet_id>" not found`; use `--network-id` instead.
 
-The CI service account must be able to exchange the GitHub OIDC token for a Yandex Cloud IAM token, read Lockbox payloads for release steps, push Container Registry images, and deploy Serverless Container revisions. The runtime service account must be able to pull images and read Lockbox payloads.
+The CI service account must be able to exchange the GitHub OIDC token for a Yandex Cloud IAM token, read Lockbox payloads for release steps, resolve Lockbox secret metadata during `revision-secrets` deployment, push Container Registry images, and deploy Serverless Container revisions. The runtime service account must be able to pull images and read Lockbox payloads.
 
 ## Runtime Configuration
 
@@ -83,6 +83,8 @@ DB_POOL_MAX=2
 
 Yandex Serverless Containers supplies `PORT`; do not set `API_PORT` in production.
 
+The API and bot Serverless Containers must have `serverless.containers.invoker` granted to unauthenticated users. This is configured once on the container resources, not during every revision deploy, so the CI service account does not need access-binding administration permissions. The bot must be public for Telegram webhook delivery, and the API URL is expected to be reachable for health checks and clients.
+
 ## GitHub Variables
 
 The workflow uses GitHub repository or `production` environment variables for non-secret deployment identifiers:
@@ -106,7 +108,7 @@ DB_POOL_MIN
 DB_POOL_MAX
 ```
 
-These values are identifiers, release settings, or public routing configuration. Application secrets stay in Lockbox.
+These values are identifiers, release settings, or public routing configuration. Application secrets stay in Lockbox. `TELEGRAM_WEBHOOK_URL` may include or omit a trailing slash; the workflow normalizes it before calling Telegram.
 
 ## GitHub Secrets
 
