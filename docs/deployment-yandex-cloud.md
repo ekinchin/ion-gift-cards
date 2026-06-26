@@ -150,6 +150,18 @@ Yandex Cloud actions receive this token through `yc-iam-token`:
     revision-service-account-id: ${{ vars.YC_RUNTIME_SA_ID }}
 ```
 
+Yandex Cloud CLI commands receive the same IAM token through `YC_TOKEN`:
+
+```yaml
+- name: Read release secrets from Lockbox
+  env:
+    YC_TOKEN: ${{ steps.iam-token.outputs.token }}
+    YC_LOCKBOX_SECRET_ID: ${{ vars.YC_LOCKBOX_SECRET_ID }}
+  run: yc lockbox payload get --id "$YC_LOCKBOX_SECRET_ID" --key DB_HOST
+```
+
+Do not pass this IAM token to `yc config set token`; that config property is for an OAuth token and causes the CLI to try creating a new IAM token from an invalid OAuth value.
+
 Configure Yandex Cloud Workload Identity Federation so only this GitHub repository, and ideally only release tag refs, can impersonate the CI service account.
 
 ## Release Secrets Read From Lockbox

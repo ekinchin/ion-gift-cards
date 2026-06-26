@@ -56,13 +56,13 @@ jobs:
 
       - name: Configure Yandex Cloud CLI
         env:
-          YC_IAM_TOKEN: ${{ steps.iam-token.outputs.token }}
+          YC_TOKEN: ${{ steps.iam-token.outputs.token }}
         run: |
-          yc config set token "$YC_IAM_TOKEN"
           yc config set folder-id "${{ vars.YC_FOLDER_ID }}"
 
       - name: Read release secrets from Lockbox
         env:
+          YC_TOKEN: ${{ steps.iam-token.outputs.token }}
           YC_LOCKBOX_SECRET_ID: ${{ vars.YC_LOCKBOX_SECRET_ID }}
         run: |
           set -euo pipefail
