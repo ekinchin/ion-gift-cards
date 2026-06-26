@@ -107,6 +107,7 @@ jobs:
 
       - name: Run database migrations
         env:
+          DB_SSL: ${{ vars.DB_SSL || 'true' }}
           DB_POOL_MIN: ${{ vars.DB_POOL_MIN || '0' }}
           DB_POOL_MAX: ${{ vars.DB_POOL_MAX || '2' }}
         run: |
@@ -116,6 +117,7 @@ jobs:
             -e DB_NAME \
             -e DB_USER \
             -e DB_PASSWORD \
+            -e DB_SSL \
             -e DB_POOL_MIN \
             -e DB_POOL_MAX \
             "$MIGRATIONS_IMAGE" \
@@ -136,6 +138,7 @@ jobs:
           revision-execution-timeout: 10
           revision-env: |
             API_HOST=0.0.0.0
+            DB_SSL=${{ vars.DB_SSL || 'true' }}
             DB_POOL_MIN=${{ vars.DB_POOL_MIN || '0' }}
             DB_POOL_MAX=${{ vars.DB_POOL_MAX || '2' }}
           revision-secrets: |
@@ -161,6 +164,7 @@ jobs:
           revision-env: |
             TELEGRAM_MODE=webhook
             API_HOST=0.0.0.0
+            DB_SSL=${{ vars.DB_SSL || 'true' }}
             DB_POOL_MIN=${{ vars.DB_POOL_MIN || '0' }}
             DB_POOL_MAX=${{ vars.DB_POOL_MAX || '2' }}
           revision-secrets: |

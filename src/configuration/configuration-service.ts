@@ -12,6 +12,11 @@ const requiredString = z.preprocess(
 
 const portSchema = z.coerce.number().int().min(1).max(65535);
 const poolSizeSchema = z.coerce.number().int().min(0);
+const booleanStringSchema = z.preprocess(
+  (value) => value === '' || value === undefined ? 'false' : value,
+  z.enum(['true', 'false'])
+    .transform((value) => value === 'true')
+);
 
 export const configurationSchema = z.object({
   api: z.object({
@@ -24,6 +29,7 @@ export const configurationSchema = z.object({
     user: requiredString.default('postgres'),
     password: requiredString.default('postgres'),
     name: requiredString.default('ion_gift_card'),
+    ssl: booleanStringSchema,
     pool: z.object({
       min: poolSizeSchema.default(0),
       max: poolSizeSchema.default(2),
@@ -67,6 +73,7 @@ const envNamesByPath = new Map<string, string>([
   ['database.user', 'DB_USER'],
   ['database.password', 'DB_PASSWORD'],
   ['database.name', 'DB_NAME'],
+  ['database.ssl', 'DB_SSL'],
   ['database.pool.min', 'DB_POOL_MIN'],
   ['database.pool.max', 'DB_POOL_MAX'],
   ['telegram.mode', 'TELEGRAM_MODE'],
@@ -108,6 +115,7 @@ function buildDatabaseConfig(env: Env): unknown {
     user: env.DB_USER,
     password: env.DB_PASSWORD,
     name: env.DB_NAME,
+    ssl: env.DB_SSL,
     pool: {
       min: env.DB_POOL_MIN,
       max: env.DB_POOL_MAX,

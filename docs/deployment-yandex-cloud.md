@@ -66,6 +66,7 @@ The API container receives:
 
 ```text
 API_HOST=0.0.0.0
+DB_SSL=true
 DB_POOL_MIN=0
 DB_POOL_MAX=2
 ```
@@ -75,6 +76,7 @@ The bot webhook container receives:
 ```text
 TELEGRAM_MODE=webhook
 API_HOST=0.0.0.0
+DB_SSL=true
 DB_POOL_MIN=0
 DB_POOL_MAX=2
 ```
@@ -99,6 +101,7 @@ TELEGRAM_WEBHOOK_URL
 Optional variables:
 
 ```text
+DB_SSL
 DB_POOL_MIN
 DB_POOL_MAX
 ```

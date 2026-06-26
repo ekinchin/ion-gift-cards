@@ -19,11 +19,22 @@ test('configuration service groups API and database defaults', () => {
     user: 'postgres',
     password: 'postgres',
     name: 'ion_gift_card',
+    ssl: false,
     pool: {
       min: 0,
       max: 2,
     },
   });
+});
+
+test('configuration service reads database SSL flag', () => {
+  const service = ConfigurationService.fromEnv({
+    TELEGRAM_MODE: 'polling',
+    TELEGRAM_BOT_TOKEN: 'test-token',
+    DB_SSL: 'true',
+  });
+
+  assert.equal(service.getDatabaseConfig().ssl, true);
 });
 
 test('configuration service accepts polling Telegram mode without webhook secret', () => {
