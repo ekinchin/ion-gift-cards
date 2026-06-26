@@ -229,6 +229,10 @@ yc resource-manager folder add-access-binding "$YC_FOLDER_ID" \
   --service-account-id "$YC_RUNTIME_SA_ID"
 
 yc resource-manager folder add-access-binding "$YC_FOLDER_ID" \
+  --role vpc.user \
+  --service-account-id "$YC_RUNTIME_SA_ID"
+
+yc resource-manager folder add-access-binding "$YC_FOLDER_ID" \
   --role lockbox.payloadViewer \
   --service-account-id "$YC_RUNTIME_SA_ID"
 ```

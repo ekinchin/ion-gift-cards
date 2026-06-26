@@ -37,7 +37,7 @@ Required Yandex Cloud resources:
 
 Use the VPC `network-id` that owns the PostgreSQL subnet. If the subnet is not in a network named `default`, using `--network-name default` during PostgreSQL creation can fail with `subnet "<subnet_id>" not found`; use `--network-id` instead.
 
-The CI service account must be able to exchange the GitHub OIDC token for a Yandex Cloud IAM token, read Lockbox payloads for release steps, resolve Lockbox secret metadata during `revision-secrets` deployment, push Container Registry images, use the VPC network, and deploy Serverless Container revisions. The runtime service account must be able to pull images and read Lockbox payloads.
+The CI service account must be able to exchange the GitHub OIDC token for a Yandex Cloud IAM token, read Lockbox payloads for release steps, resolve Lockbox secret metadata during `revision-secrets` deployment, push Container Registry images, use the VPC network, and deploy Serverless Container revisions. The runtime service account must be able to pull images, read Lockbox payloads, and use the VPC network.
 
 ## Runtime Configuration
 
