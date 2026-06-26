@@ -2,7 +2,17 @@
 
 Эта инструкция описывает ручную подготовку Yandex Cloud под текущий workflow `.github/workflows/release.yml`.
 
-Текущий workflow запускает миграции из GitHub Actions runner через `docker run`. Поэтому для первого запуска PostgreSQL должен быть доступен из GitHub Actions. Самый простой вариант - Managed PostgreSQL с public access. Более строгий production-вариант - доработать workflow так, чтобы миграции выполнялись внутри Yandex Cloud/VPC, а Serverless Containers получали `revision-network-id`.
+Текущий workflow:
+
+- запускается по tag `v*.*.*`;
+- получает IAM token через GitHub OIDC / Yandex Cloud federation;
+- читает production secrets из Lockbox;
+- собирает и публикует 3 Docker image в Yandex Container Registry;
+- запускает миграции из GitHub Actions runner через `docker run`;
+- деплоит API и Telegram webhook bot в Yandex Serverless Containers;
+- регистрирует Telegram webhook.
+
+Важно: миграции сейчас выполняются из GitHub Actions runner. Поэтому для первого запуска PostgreSQL должен быть доступен из GitHub Actions. Самый простой вариант - Managed PostgreSQL с public access. Более строгий production-вариант - перенести миграции внутрь Yandex Cloud/VPC и добавить `revision-network-id` для Serverless Containers.
 
 ## 1. Подготовить YC CLI
 
@@ -10,21 +20,61 @@
 yc init
 yc config list
 yc resource-manager folder list
+
 export YC_FOLDER_ID=<folder_id>
 yc config set folder-id "$YC_FOLDER_ID"
 ```
 
-## 2. Создать Managed PostgreSQL
+## 2. Проверить VPC network и subnet
 
-Создайте кластер, базу `ion_gift_card`, пользователя и пароль. Пример CLI-команды:
+Посмотрите существующие сети и подсети:
+
+```bash
+yc vpc network list
+yc vpc subnet list
+```
+
+В выводе `yc vpc subnet list` нужны:
+
+```text
+ID         -> subnet id
+NETWORK ID -> network id
+ZONE       -> zone id
+```
+
+Пример:
+
+```text
+ID:         e9be0gun6906tqmknpcb
+NETWORK ID: enpvlsgeaeurtm0kfbvp
+ZONE:       ru-central1-a
+```
+
+Сохраните:
+
+```bash
+export YC_NETWORK_ID=<network_id>
+export YC_SUBNET_ID=<subnet_id>
+export YC_ZONE=ru-central1-a
+```
+
+Используйте `--network-id`, а не `--network-name default`, если подсеть создана в отдельной сети. Иначе Managed PostgreSQL может вернуть ошибку вида:
+
+```text
+subnet "<subnet_id>" not found
+```
+
+## 3. Создать Managed PostgreSQL
+
+Создайте кластер, базу `ion_gift_card`, пользователя и пароль:
 
 ```bash
 yc managed-postgresql cluster create \
   --name ion-gift-card-pg \
   --environment production \
-  --network-name default \
+  --network-id "$YC_NETWORK_ID" \
   --resource-preset s2.micro \
-  --host zone-id=ru-central1-a,subnet-id=<subnet_id>,assign-public-ip=true \
+  --host zone-id="$YC_ZONE",subnet-id="$YC_SUBNET_ID",assign-public-ip=true \
   --disk-type network-ssd \
   --disk-size 20 \
   --user name=ion_user,password='<strong_password>' \
@@ -32,7 +82,7 @@ yc managed-postgresql cluster create \
   --deletion-protection
 ```
 
-Сохраните значения:
+Сохраните connection values:
 
 ```text
 DB_HOST
@@ -42,9 +92,9 @@ DB_USER=ion_user
 DB_PASSWORD
 ```
 
-`DB_PORT` зависит от способа подключения: используйте значение из connection info в Yandex Cloud.
+`DB_PORT` зависит от способа подключения. Используйте значение из connection info в Yandex Cloud.
 
-## 3. Создать Container Registry
+## 4. Создать Container Registry
 
 ```bash
 yc container registry create --name ion-gift-card --secure
@@ -57,24 +107,50 @@ yc container registry list
 YC_REGISTRY_ID=<registry_id>
 ```
 
-## 4. Создать Lockbox secret
+## 5. Сгенерировать Telegram webhook secret
 
-Runtime containers получают секреты из Lockbox. Создайте secret:
+`TELEGRAM_WEBHOOK_SECRET` не выдаётся Telegram или Yandex Cloud. Это случайная строка, которую мы генерируем сами:
+
+```bash
+openssl rand -hex 32
+```
+
+Сохраните значение:
+
+```text
+TELEGRAM_WEBHOOK_SECRET=<generated_secret>
+```
+
+Оно должно быть одинаковым в Lockbox и при регистрации Telegram webhook. Workflow берёт его из Lockbox и передаёт в `setWebhook`.
+
+## 6. Создать Lockbox secret
+
+Runtime containers и release workflow читают production secrets из Lockbox.
+
+Рекомендуемый способ - подготовить payload file, чтобы не светить секреты в shell history:
+
+```bash
+cat > lockbox-payload.json <<'JSON'
+[
+  {"key":"DB_HOST","text_value":"<db_host>"},
+  {"key":"DB_PORT","text_value":"<db_port>"},
+  {"key":"DB_NAME","text_value":"ion_gift_card"},
+  {"key":"DB_USER","text_value":"ion_user"},
+  {"key":"DB_PASSWORD","text_value":"<db_password>"},
+  {"key":"TELEGRAM_BOT_TOKEN","text_value":"<bot_token>"},
+  {"key":"TELEGRAM_WEBHOOK_SECRET","text_value":"<generated_secret>"},
+  {"key":"WEB_APP_URL","text_value":"<bot_container_url_or_domain>/qr"}
+]
+JSON
+```
+
+Создайте secret:
 
 ```bash
 yc lockbox secret create \
   --name ion-gift-card-runtime \
   --description "Ion Gift Card production runtime config" \
-  --payload "[
-    {'key':'DB_HOST','text_value':'<db_host>'},
-    {'key':'DB_PORT','text_value':'<db_port>'},
-    {'key':'DB_NAME','text_value':'ion_gift_card'},
-    {'key':'DB_USER','text_value':'ion_user'},
-    {'key':'DB_PASSWORD','text_value':'<db_password>'},
-    {'key':'TELEGRAM_BOT_TOKEN','text_value':'<bot_token>'},
-    {'key':'TELEGRAM_WEBHOOK_SECRET','text_value':'<random_secret>'},
-    {'key':'WEB_APP_URL','text_value':'<bot_container_url_or_domain>/qr'}
-  ]" \
+  --payload "$(cat lockbox-payload.json)" \
   --folder-id "$YC_FOLDER_ID" \
   --deletion-protection
 ```
@@ -85,14 +161,18 @@ yc lockbox secret create \
 YC_LOCKBOX_SECRET_ID=<secret_id>
 ```
 
-`TELEGRAM_WEBHOOK_SECRET` должен быть случайной строкой. То же значение понадобится в GitHub secret.
+После создания удалите локальный payload file, если он больше не нужен:
 
-## 5. Создать service accounts
+```bash
+rm lockbox-payload.json
+```
+
+## 7. Создать service accounts
 
 Нужны два service account:
 
-- `ion-gift-card-ci` - используется GitHub Actions для push images и deploy.
-- `ion-gift-card-runtime` - используется Serverless Container revisions в runtime.
+- `ion-gift-card-ci` - GitHub Actions получает IAM token для этого account через federation.
+- `ion-gift-card-runtime` - Serverless Container revisions используют этот account в runtime.
 
 ```bash
 yc iam service-account create --name ion-gift-card-ci
@@ -107,7 +187,7 @@ YC_CI_SA_ID=<ci_service_account_id>
 YC_RUNTIME_SA_ID=<runtime_service_account_id>
 ```
 
-## 6. Выдать роли
+## 8. Выдать роли
 
 CI service account:
 
@@ -147,19 +227,37 @@ yc resource-manager folder add-access-binding "$YC_FOLDER_ID" \
 
 Если Lockbox secret зашифрован KMS-ключом, runtime service account также должен иметь права на decrypt этого ключа.
 
-## 7. Создать authorized key для GitHub Actions
+## 9. Связать GitHub repository с Yandex Cloud через federation
 
-```bash
-yc iam key create \
-  --service-account-id "$YC_CI_SA_ID" \
-  -o yc-ci-key.json
+Текущий workflow не использует долгоживущий `YC_SA_JSON_CREDENTIALS`. Вместо этого он запрашивает GitHub OIDC token и меняет его на Yandex Cloud IAM token через:
+
+```yaml
+permissions:
+  id-token: write
+
+- uses: docker://ghcr.io/yc-actions/yc-iam-token-fed:1.0.0
+  with:
+    yc-sa-id: ${{ vars.YC_CI_SA_ID }}
 ```
 
-Содержимое `yc-ci-key.json` целиком понадобится в GitHub secret `YC_SA_JSON_CREDENTIALS`.
+В Yandex Cloud нужно настроить federation/provider для GitHub Actions OIDC и разрешить вашему GitHub repository получать token для service account `ion-gift-card-ci`.
 
-Храните файл аккуратно: приватную часть ключа нельзя получить повторно из Yandex Cloud.
+Настройте federation так, чтобы были ограничены минимум:
 
-## 8. Создать Serverless Containers
+```text
+repository=<github_owner>/<github_repo>
+ref=refs/tags/v*
+```
+
+Если настраиваете через UI, ищите раздел IAM / Workload Identity Federation или Federation для service accounts. Если у вас уже настроен federation/provider для GitHub Actions, просто добавьте binding/condition для этого repository и service account.
+
+Проверочное значение, которое понадобится GitHub workflow:
+
+```text
+YC_CI_SA_ID=<ci_service_account_id>
+```
+
+## 10. Создать Serverless Containers
 
 ```bash
 yc serverless container create --name ion-gift-card-api
@@ -177,7 +275,13 @@ TELEGRAM_WEBHOOK_URL=<bot_container_url_without_trailing_slash>
 
 `TELEGRAM_WEBHOOK_URL` - URL bot container из `yc serverless container list` или ваш домен, если вы будете ставить свой домен перед контейнером.
 
-## 9. Настроить GitHub repository
+После того как станет известен `TELEGRAM_WEBHOOK_URL`, обновите `WEB_APP_URL` в Lockbox, если QR mini app должен открываться через production URL:
+
+```text
+WEB_APP_URL=<api_or_bot_domain>/qr
+```
+
+## 11. Настроить GitHub repository
 
 В GitHub откройте:
 
@@ -191,44 +295,31 @@ Repository -> Settings -> Secrets and variables -> Actions
 production
 ```
 
-Workflow использует `environment: production`, поэтому secrets лучше добавлять именно в environment `production`.
+Workflow использует `environment: production`, поэтому variables лучше добавлять именно в environment `production`.
 
-Добавьте GitHub secrets:
+Добавьте GitHub environment variables:
 
 ```text
-YC_SA_JSON_CREDENTIALS=<полный JSON из yc-ci-key.json>
+YC_CI_SA_ID=<ci_service_account_id>
 YC_FOLDER_ID=<folder_id>
 YC_REGISTRY_ID=<registry_id>
 YC_RUNTIME_SA_ID=<runtime_service_account_id>
 YC_API_CONTAINER_NAME=ion-gift-card-api
 YC_BOT_CONTAINER_NAME=ion-gift-card-bot
 YC_LOCKBOX_SECRET_ID=<lockbox_secret_id>
-
-DB_HOST=<db_host>
-DB_PORT=<db_port>
-DB_NAME=ion_gift_card
-DB_USER=ion_user
-DB_PASSWORD=<db_password>
-
-TELEGRAM_BOT_TOKEN=<bot_token>
-TELEGRAM_WEBHOOK_SECRET=<same_random_secret_as_lockbox>
 TELEGRAM_WEBHOOK_URL=<bot_container_url_without_trailing_slash>
 ```
 
-Опционально добавьте GitHub environment variables:
+Опционально:
 
 ```text
 DB_POOL_MIN=0
 DB_POOL_MAX=2
 ```
 
-Почему часть секретов дублируется:
+GitHub secrets для текущего workflow не нужны, если federation настроен корректно. Production secrets (`DB_*`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`, `WEB_APP_URL`) хранятся в Lockbox.
 
-- Runtime API/bot containers читают `DB_*`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`, `WEB_APP_URL` из Lockbox.
-- Migration step выполняется в GitHub Actions runner, поэтому ему нужны `DB_*` как GitHub secrets.
-- Telegram webhook registration выполняется в GitHub Actions runner, поэтому ему нужны `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`, `TELEGRAM_WEBHOOK_URL` как GitHub secrets.
-
-## 10. Запустить первый релиз
+## 12. Запустить первый релиз
 
 Убедитесь, что все коммиты запушены:
 
@@ -246,17 +337,20 @@ git push origin v1.0.0
 GitHub Actions должен выполнить:
 
 1. `npm ci`, `npm run typecheck`, `npm test`.
-2. Login в Yandex Container Registry.
-3. Build/push images:
+2. Получение Yandex Cloud IAM token через federation.
+3. Установку и настройку YC CLI.
+4. Чтение release secrets из Lockbox.
+5. Login в Yandex Container Registry.
+6. Build/push images:
    - `ion-gift-card-api`
    - `ion-gift-card-bot-webhook`
    - `ion-gift-card-migrations`
-4. Запуск миграций.
-5. Deploy API Serverless Container.
-6. Deploy bot webhook Serverless Container.
-7. Регистрацию Telegram webhook.
+7. Запуск миграций.
+8. Deploy API Serverless Container.
+9. Deploy bot webhook Serverless Container.
+10. Регистрацию Telegram webhook.
 
-## 11. Проверить после релиза
+## 13. Проверить после релиза
 
 Проверьте health endpoints:
 
@@ -277,9 +371,9 @@ curl "https://api.telegram.org/bot<token>/getWebhookInfo"
 /start
 ```
 
-## 12. Что улучшить после первого запуска
+## 14. Что улучшить после первого запуска
 
 - Закрыть публичный доступ к PostgreSQL.
 - Добавить `revision-network-id` в `.github/workflows/release.yml`.
 - Перенести миграции в Yandex Cloud network, чтобы GitHub runner не ходил в БД напрямую.
-- Рассмотреть Workload Identity Federation вместо долгоживущего `YC_SA_JSON_CREDENTIALS`.
+- Закрепить versions/actions по digest там, где это критично для supply chain.
