@@ -81,6 +81,8 @@ DB_POOL_MIN=0
 DB_POOL_MAX=2
 ```
 
+Both API and bot revisions are attached to the VPC network identified by `YC_NETWORK_ID` so runtime containers can reach Managed PostgreSQL through the cloud network.
+
 Yandex Serverless Containers supplies `PORT`; do not set `API_PORT` in production.
 
 The API and bot Serverless Containers must have `serverless.containers.invoker` granted to unauthenticated users. This is configured once on the container resources, not during every revision deploy, so the CI service account does not need access-binding administration permissions. The bot must be public for Telegram webhook delivery, and the API URL is expected to be reachable for health checks and clients.
@@ -97,6 +99,7 @@ YC_RUNTIME_SA_ID
 YC_API_CONTAINER_NAME
 YC_BOT_CONTAINER_NAME
 YC_LOCKBOX_SECRET_ID
+YC_NETWORK_ID
 TELEGRAM_WEBHOOK_URL
 ```
 
@@ -203,7 +206,7 @@ GitHub Actions then:
 5. Logs in to Yandex Container Registry.
 6. Builds and pushes `ion-gift-card-api`, `ion-gift-card-bot-webhook`, and `ion-gift-card-migrations` images tagged with the Git tag.
 7. Runs the migrations image before deploying runtime revisions.
-8. Deploys API and bot Serverless Container revisions with Lockbox-backed secrets.
+8. Deploys API and bot Serverless Container revisions with Lockbox-backed secrets and `YC_NETWORK_ID`.
 9. Registers the Telegram webhook at `${TELEGRAM_WEBHOOK_URL}/webhook`.
 
 If checks, image push, migrations, deployment, or webhook registration fail, the workflow stops before later release steps. Rollback is done by redeploying a previous image tag as a new Serverless Container revision; database rollback is not automatic.
@@ -227,8 +230,7 @@ Then send `/start` to the bot in Telegram.
 
 ## Hardening After First Deployment
 
-- Close public PostgreSQL access.
-- Add `revision-network-id` to Serverless Container deployments.
+- Close public PostgreSQL access after confirming runtime VPC access works.
 - Move migrations into Yandex Cloud/VPC so GitHub runners do not connect to the database directly.
 - Restrict federation conditions to this repository and release tag refs.
 - Pin third-party actions/images by digest where supply-chain risk matters.

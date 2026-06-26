@@ -322,6 +322,7 @@ YC_REGISTRY_ID=<registry_id>
 YC_RUNTIME_SA_ID=<runtime_service_account_id>
 YC_API_CONTAINER_NAME=ion-gift-card-api
 YC_BOT_CONTAINER_NAME=ion-gift-card-bot
+YC_NETWORK_ID=<network_id>
 YC_LOCKBOX_SECRET_ID=<lockbox_secret_id>
 TELEGRAM_WEBHOOK_URL=<bot_container_url_without_trailing_slash>
 ```
@@ -332,6 +333,8 @@ TELEGRAM_WEBHOOK_URL=<bot_container_url_without_trailing_slash>
 DB_POOL_MIN=0
 DB_POOL_MAX=2
 ```
+
+`YC_NETWORK_ID` должен быть ID той VPC network, где находится подсеть Managed PostgreSQL. Workflow передаёт его в `revision-network-id` для API и bot revisions, чтобы runtime containers могли ходить в PostgreSQL через облачную сеть.
 
 GitHub secrets для текущего workflow не нужны, если federation настроен корректно. Production secrets (`DB_*`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`, `WEB_APP_URL`) хранятся в Lockbox.
 
@@ -390,6 +393,6 @@ curl "https://api.telegram.org/bot<token>/getWebhookInfo"
 ## 14. Что улучшить после первого запуска
 
 - Закрыть публичный доступ к PostgreSQL.
-- Добавить `revision-network-id` в `.github/workflows/release.yml`.
+- Закрыть публичный доступ к PostgreSQL после проверки runtime-доступа через VPC.
 - Перенести миграции в Yandex Cloud network, чтобы GitHub runner не ходил в БД напрямую.
 - Закрепить versions/actions по digest там, где это критично для supply chain.

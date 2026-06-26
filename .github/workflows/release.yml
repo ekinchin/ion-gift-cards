@@ -136,6 +136,7 @@ jobs:
           revision-core-fraction: 100
           revision-concurrency: 8
           revision-execution-timeout: 10
+          revision-network-id: ${{ vars.YC_NETWORK_ID }}
           revision-env: |
             API_HOST=0.0.0.0
             DB_SSL=${{ vars.DB_SSL || 'true' }}
@@ -161,6 +162,7 @@ jobs:
           revision-core-fraction: 100
           revision-concurrency: 8
           revision-execution-timeout: 10
+          revision-network-id: ${{ vars.YC_NETWORK_ID }}
           revision-env: |
             TELEGRAM_MODE=webhook
             API_HOST=0.0.0.0
