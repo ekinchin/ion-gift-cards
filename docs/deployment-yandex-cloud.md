@@ -150,12 +150,12 @@ Yandex Cloud actions receive this token through `yc-iam-token`:
     revision-service-account-id: ${{ vars.YC_RUNTIME_SA_ID }}
 ```
 
-Yandex Cloud CLI commands receive the same IAM token through `YC_TOKEN`:
+Yandex Cloud CLI commands receive the same IAM token through `YC_IAM_TOKEN`:
 
 ```yaml
 - name: Read release secrets from Lockbox
   env:
-    YC_TOKEN: ${{ steps.iam-token.outputs.token }}
+    YC_IAM_TOKEN: ${{ steps.iam-token.outputs.token }}
     YC_LOCKBOX_SECRET_ID: ${{ vars.YC_LOCKBOX_SECRET_ID }}
   run: yc lockbox payload get --id "$YC_LOCKBOX_SECRET_ID" --key DB_HOST
 ```
