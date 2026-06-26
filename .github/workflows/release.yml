@@ -56,7 +56,7 @@ jobs:
 
       - name: Configure Yandex Cloud CLI
         env:
-          YC_IAM_TOKEN: ${{ steps.iam-token.outputs.iam-token }}
+          YC_IAM_TOKEN: ${{ steps.iam-token.outputs.token }}
         run: |
           yc config set token "$YC_IAM_TOKEN"
           yc config set folder-id "${{ vars.YC_FOLDER_ID }}"
@@ -88,7 +88,7 @@ jobs:
       - name: Login to Yandex Cloud Container Registry
         uses: yc-actions/yc-cr-login@v3
         with:
-          yc-iam-token: ${{ steps.iam-token.outputs.iam-token }}
+          yc-iam-token: ${{ steps.iam-token.outputs.token }}
 
       - name: Build and push API image
         run: |
@@ -124,7 +124,7 @@ jobs:
       - name: Deploy API container
         uses: yc-actions/yc-sls-container-deploy@v4
         with:
-          yc-iam-token: ${{ steps.iam-token.outputs.iam-token }}
+          yc-iam-token: ${{ steps.iam-token.outputs.token }}
           folder-id: ${{ vars.YC_FOLDER_ID }}
           container-name: ${{ vars.YC_API_CONTAINER_NAME }}
           revision-service-account-id: ${{ vars.YC_RUNTIME_SA_ID }}
@@ -148,7 +148,7 @@ jobs:
       - name: Deploy bot webhook container
         uses: yc-actions/yc-sls-container-deploy@v4
         with:
-          yc-iam-token: ${{ steps.iam-token.outputs.iam-token }}
+          yc-iam-token: ${{ steps.iam-token.outputs.token }}
           folder-id: ${{ vars.YC_FOLDER_ID }}
           container-name: ${{ vars.YC_BOT_CONTAINER_NAME }}
           revision-service-account-id: ${{ vars.YC_RUNTIME_SA_ID }}

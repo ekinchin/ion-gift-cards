@@ -137,14 +137,14 @@ Yandex Cloud actions receive this token through `yc-iam-token`:
 - name: Login to Yandex Cloud Container Registry
   uses: yc-actions/yc-cr-login@v3
   with:
-    yc-iam-token: ${{ steps.iam-token.outputs.iam-token }}
+    yc-iam-token: ${{ steps.iam-token.outputs.token }}
 ```
 
 ```yaml
 - name: Deploy API container
   uses: yc-actions/yc-sls-container-deploy@v4
   with:
-    yc-iam-token: ${{ steps.iam-token.outputs.iam-token }}
+    yc-iam-token: ${{ steps.iam-token.outputs.token }}
     folder-id: ${{ vars.YC_FOLDER_ID }}
     container-name: ${{ vars.YC_API_CONTAINER_NAME }}
     revision-service-account-id: ${{ vars.YC_RUNTIME_SA_ID }}
