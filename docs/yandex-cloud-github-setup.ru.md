@@ -312,7 +312,6 @@ VM создаётся автоматически workflow через `yc compute
 Обязательные GitHub variables:
 
 ```text
-YC_BOT_VM_NAME=ion-gift-card-bot
 YC_ZONE=<zone_id>
 YC_SUBNET_ID=<subnet_id>
 ```
@@ -320,6 +319,7 @@ YC_SUBNET_ID=<subnet_id>
 Опциональные GitHub variables с defaults:
 
 ```text
+YC_BOT_VM_NAME=ion-gift-card-bot
 YC_BOT_VM_CORES=2
 YC_BOT_VM_MEMORY=2
 YC_BOT_VM_CORE_FRACTION=20

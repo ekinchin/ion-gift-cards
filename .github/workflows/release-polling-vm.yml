@@ -153,7 +153,7 @@ jobs:
       - name: Deploy bot polling VM
         env:
           YC_IAM_TOKEN: ${{ steps.iam-token.outputs.token }}
-          YC_BOT_VM_NAME: ${{ vars.YC_BOT_VM_NAME }}
+          YC_BOT_VM_NAME: ${{ vars.YC_BOT_VM_NAME || 'ion-gift-card-bot' }}
           YC_ZONE: ${{ vars.YC_ZONE }}
           YC_SUBNET_ID: ${{ vars.YC_SUBNET_ID }}
           YC_RUNTIME_SA_ID: ${{ vars.YC_RUNTIME_SA_ID }}
