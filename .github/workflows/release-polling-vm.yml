@@ -39,6 +39,17 @@ jobs:
           YC_LOCKBOX_SECRET_ID: ${{ vars.YC_LOCKBOX_SECRET_ID }}
           YC_NETWORK_ID: ${{ vars.YC_NETWORK_ID }}
           YC_SUBNET_ID: ${{ vars.YC_SUBNET_ID }}
+          YC_ZONE: ${{ vars.YC_ZONE }}
+          YC_BOT_VM_NAME: ${{ vars.YC_BOT_VM_NAME || 'ion-gift-card-bot' }}
+          YC_BOT_VM_CORES: ${{ vars.YC_BOT_VM_CORES || '2' }}
+          YC_BOT_VM_MEMORY: ${{ vars.YC_BOT_VM_MEMORY || '2' }}
+          YC_BOT_VM_CORE_FRACTION: ${{ vars.YC_BOT_VM_CORE_FRACTION || '20' }}
+          YC_BOT_VM_DISK_SIZE: ${{ vars.YC_BOT_VM_DISK_SIZE || '16' }}
+          YC_BOT_VM_DISK_TYPE: ${{ vars.YC_BOT_VM_DISK_TYPE || 'network-hdd' }}
+          YC_BOT_VM_PLATFORM: ${{ vars.YC_BOT_VM_PLATFORM || 'standard-v3' }}
+          DB_SSL: ${{ vars.DB_SSL || 'true' }}
+          DB_POOL_MIN: ${{ vars.DB_POOL_MIN || '0' }}
+          DB_POOL_MAX: ${{ vars.DB_POOL_MAX || '2' }}
         run: |
           set -euo pipefail
 
@@ -53,10 +64,42 @@ jobs:
             YC_SUBNET_ID
           )
 
+          optional_vars=(
+            YC_ZONE
+            YC_BOT_VM_NAME
+            YC_BOT_VM_CORES
+            YC_BOT_VM_MEMORY
+            YC_BOT_VM_CORE_FRACTION
+            YC_BOT_VM_DISK_SIZE
+            YC_BOT_VM_DISK_TYPE
+            YC_BOT_VM_PLATFORM
+            DB_SSL
+            DB_POOL_MIN
+            DB_POOL_MAX
+          )
+
           missing_vars=()
           for var_name in "${required_vars[@]}"; do
             if [[ -z "${!var_name:-}" ]]; then
               missing_vars+=("$var_name")
+            fi
+          done
+
+          printf 'Required GitHub Actions variables:\n'
+          for var_name in "${required_vars[@]}"; do
+            if [[ -n "${!var_name:-}" ]]; then
+              printf ' - %s: set\n' "$var_name"
+            else
+              printf ' - %s: missing\n' "$var_name"
+            fi
+          done
+
+          printf 'Optional GitHub Actions variables and defaults:\n'
+          for var_name in "${optional_vars[@]}"; do
+            if [[ -n "${!var_name:-}" ]]; then
+              printf ' - %s: set\n' "$var_name"
+            else
+              printf ' - %s: unset\n' "$var_name"
             fi
           done
 
