@@ -1,6 +1,6 @@
 # Настройка Yandex Cloud и GitHub Actions
 
-Эта инструкция описывает ручную подготовку Yandex Cloud под текущий workflow `.github/workflows/release.yml`.
+Эта инструкция описывает ручную подготовку Yandex Cloud под текущий workflow `.github/workflows/release-polling-vm.yml`.
 
 Текущий workflow:
 
@@ -9,8 +9,9 @@
 - читает production secrets из Lockbox;
 - собирает и публикует 3 Docker image в Yandex Container Registry;
 - запускает миграции из GitHub Actions runner через `docker run`;
-- деплоит API и Telegram webhook bot в Yandex Serverless Containers;
-- регистрирует Telegram webhook.
+- деплоит API в Yandex Serverless Containers;
+- создаёт или обновляет Compute Cloud VM с Container Solution для Telegram long polling bot;
+- удаляет Telegram webhook, чтобы polling мог получать updates.
 
 Важно: миграции сейчас выполняются из GitHub Actions runner. Поэтому для первого запуска PostgreSQL должен быть доступен из GitHub Actions. Самый простой вариант - Managed PostgreSQL с public access. Более строгий production-вариант - перенести миграции внутрь Yandex Cloud/VPC и добавить `revision-network-id` для Serverless Containers.
 
@@ -109,7 +110,7 @@ YC_REGISTRY_ID=<registry_id>
 
 ## 5. Сгенерировать Telegram webhook secret
 
-`TELEGRAM_WEBHOOK_SECRET` не выдаётся Telegram или Yandex Cloud. Это случайная строка, которую мы генерируем сами:
+`TELEGRAM_WEBHOOK_SECRET` нужен только для старого ручного webhook workflow `.github/workflows/release.yml`. Для текущего polling workflow он не используется. Если хотите оставить возможность ручного отката на webhook, сохраните secret:
 
 ```bash
 openssl rand -hex 32
@@ -121,7 +122,7 @@ openssl rand -hex 32
 TELEGRAM_WEBHOOK_SECRET=<generated_secret>
 ```
 
-Оно должно быть одинаковым в Lockbox и при регистрации Telegram webhook. Workflow берёт его из Lockbox и передаёт в `setWebhook`.
+Оно должно быть одинаковым в Lockbox и при регистрации Telegram webhook. Старый ручной workflow берёт его из Lockbox и передаёт в `setWebhook`.
 
 ## 6. Создать Lockbox secret
 
@@ -138,8 +139,8 @@ cat > lockbox-payload.json <<'JSON'
   {"key":"DB_USER","text_value":"ion_user"},
   {"key":"DB_PASSWORD","text_value":"<db_password>"},
   {"key":"TELEGRAM_BOT_TOKEN","text_value":"<bot_token>"},
-  {"key":"TELEGRAM_WEBHOOK_SECRET","text_value":"<generated_secret>"},
-  {"key":"WEB_APP_URL","text_value":"<bot_container_url_or_domain>/qr"}
+  {"key":"TELEGRAM_WEBHOOK_SECRET","text_value":"<generated_secret_for_legacy_webhook_workflow>"},
+  {"key":"WEB_APP_URL","text_value":"<api_domain>/qr"}
 ]
 JSON
 ```
@@ -172,7 +173,7 @@ rm lockbox-payload.json
 Нужны два service account:
 
 - `ion-gift-card-ci` - GitHub Actions получает IAM token для этого account через federation.
-- `ion-gift-card-runtime` - Serverless Container revisions используют этот account в runtime.
+- `ion-gift-card-runtime` - Serverless Container revision и bot VM используют этот account в runtime.
 
 ```bash
 yc iam service-account create --name ion-gift-card-ci
@@ -198,6 +199,10 @@ yc resource-manager folder add-access-binding "$YC_FOLDER_ID" \
 
 yc resource-manager folder add-access-binding "$YC_FOLDER_ID" \
   --role serverless-containers.editor \
+  --service-account-id "$YC_CI_SA_ID"
+
+yc resource-manager folder add-access-binding "$YC_FOLDER_ID" \
+  --role compute.editor \
   --service-account-id "$YC_CI_SA_ID"
 
 yc resource-manager folder add-access-binding "$YC_FOLDER_ID" \
@@ -273,18 +278,13 @@ YC_CI_SA_ID=<ci_service_account_id>
 
 ```bash
 yc serverless container create --name ion-gift-card-api
-yc serverless container create --name ion-gift-card-bot
 yc serverless container list
 ```
 
-Сделайте оба контейнера публично вызываемыми. Это нужно для Telegram webhook и внешних API/health checks:
+Сделайте API container публично вызываемым. Это нужно для внешних API/health checks:
 
 ```bash
 yc serverless container add-access-binding ion-gift-card-api \
-  --role serverless-containers.invoker \
-  --all-users
-
-yc serverless container add-access-binding ion-gift-card-bot \
   --role serverless-containers.invoker \
   --all-users
 ```
@@ -293,17 +293,42 @@ yc serverless container add-access-binding ion-gift-card-bot \
 
 ```text
 YC_API_CONTAINER_NAME=ion-gift-card-api
-YC_BOT_CONTAINER_NAME=ion-gift-card-bot
-TELEGRAM_WEBHOOK_URL=<bot_container_url_without_trailing_slash>
 ```
 
-`TELEGRAM_WEBHOOK_URL` - URL bot container из `yc serverless container list` или ваш домен, если вы будете ставить свой домен перед контейнером. Значение может быть со слэшем в конце или без него; release workflow нормализует URL перед регистрацией webhook.
+Bot больше не создаётся как Serverless Container: Telegram updates забираются через long polling с Compute VM, поэтому публичный endpoint для Telegram не нужен.
 
-После того как станет известен `TELEGRAM_WEBHOOK_URL`, обновите `WEB_APP_URL` в Lockbox, если QR mini app должен открываться через production URL:
+Обновите `WEB_APP_URL` в Lockbox на production URL для QR mini app:
 
 ```text
-WEB_APP_URL=<api_or_bot_domain>/qr
+WEB_APP_URL=<api_domain>/qr
 ```
+
+## 10a. Подготовить Compute VM параметры для polling bot
+
+VM создаётся автоматически workflow через `yc compute instance create` на базе Yandex Container Optimized Image. Если instance с именем `YC_BOT_VM_NAME` уже есть, workflow удаляет его и создаёт заново: bot stateless, а durable state хранится в PostgreSQL.
+
+Секреты `DB_*`, `TELEGRAM_BOT_TOKEN` и `WEB_APP_URL` не передаются через Compute metadata. В metadata хранится только cloud-init `user-data` с image tag и `YC_LOCKBOX_SECRET_ID`. При boot systemd unit внутри VM читает Lockbox через runtime service account, пишет root-only env file и запускает контейнер через Docker.
+
+Обязательные GitHub variables:
+
+```text
+YC_BOT_VM_NAME=ion-gift-card-bot
+YC_ZONE=<zone_id>
+YC_SUBNET_ID=<subnet_id>
+```
+
+Опциональные GitHub variables с defaults:
+
+```text
+YC_BOT_VM_CORES=2
+YC_BOT_VM_MEMORY=2
+YC_BOT_VM_CORE_FRACTION=20
+YC_BOT_VM_DISK_SIZE=16
+YC_BOT_VM_DISK_TYPE=network-hdd
+YC_BOT_VM_PLATFORM=standard-v3
+```
+
+VM получает public NAT только для исходящего доступа к Telegram API. Inbound HTTP для polling bot не нужен.
 
 ## 11. Настроить GitHub repository
 
@@ -329,10 +354,11 @@ YC_FOLDER_ID=<folder_id>
 YC_REGISTRY_ID=<registry_id>
 YC_RUNTIME_SA_ID=<runtime_service_account_id>
 YC_API_CONTAINER_NAME=ion-gift-card-api
-YC_BOT_CONTAINER_NAME=ion-gift-card-bot
 YC_NETWORK_ID=<network_id>
+YC_SUBNET_ID=<subnet_id>
+YC_ZONE=<zone_id>
+YC_BOT_VM_NAME=ion-gift-card-bot
 YC_LOCKBOX_SECRET_ID=<lockbox_secret_id>
-TELEGRAM_WEBHOOK_URL=<bot_container_url_without_trailing_slash>
 ```
 
 Опционально:
@@ -342,7 +368,8 @@ DB_POOL_MIN=0
 DB_POOL_MAX=2
 ```
 
-`YC_NETWORK_ID` должен быть ID той VPC network, где находится подсеть Managed PostgreSQL. Workflow передаёт его в `revision-network-id` для API и bot revisions, чтобы runtime containers могли ходить в PostgreSQL через облачную сеть.
+`YC_NETWORK_ID` должен быть ID той VPC network, где находится подсеть Managed PostgreSQL. Workflow передаёт его в `revision-network-id` для API revision, чтобы runtime container мог ходить в PostgreSQL через облачную сеть.
+`YC_SUBNET_ID` должен быть ID подсети для Compute VM с polling bot. VM должна иметь исходящий доступ к Telegram API; текущий workflow создаёт public NAT address на network interface.
 
 GitHub secrets для текущего workflow не нужны, если federation настроен корректно. Production secrets (`DB_*`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`, `WEB_APP_URL`) хранятся в Lockbox.
 
@@ -370,12 +397,12 @@ GitHub Actions должен выполнить:
 5. Login в Yandex Container Registry.
 6. Build/push images:
    - `ion-gift-card-api`
-   - `ion-gift-card-bot-webhook`
+   - `ion-gift-card-bot-polling`
    - `ion-gift-card-migrations`
 7. Запуск миграций.
 8. Deploy API Serverless Container.
-9. Deploy bot webhook Serverless Container.
-10. Регистрацию Telegram webhook.
+9. Create/update Compute VM container для polling bot.
+10. Удаление Telegram webhook через `deleteWebhook`.
 
 ## 13. Проверить после релиза
 
@@ -383,10 +410,9 @@ GitHub Actions должен выполнить:
 
 ```bash
 curl https://<api_container_url>/health
-curl https://<bot_container_url>/health
 ```
 
-Проверьте webhook в Telegram:
+Проверьте, что Telegram webhook очищен:
 
 ```bash
 curl "https://api.telegram.org/bot<token>/getWebhookInfo"

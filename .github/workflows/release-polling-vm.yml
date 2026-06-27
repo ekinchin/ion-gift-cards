@@ -1,16 +1,19 @@
-name: Release
+name: Release Polling VM
 
 on:
+  push:
+    tags:
+      - "v*.*.*"
   workflow_dispatch:
 
 concurrency:
-  group: release-${{ github.ref_name }}
+  group: release-polling-vm-${{ github.ref_name }}
   cancel-in-progress: false
 
 env:
   REGISTRY: cr.yandex/${{ vars.YC_REGISTRY_ID }}
   API_IMAGE: cr.yandex/${{ vars.YC_REGISTRY_ID }}/ion-gift-card-api:${{ github.ref_name }}
-  BOT_WEBHOOK_IMAGE: cr.yandex/${{ vars.YC_REGISTRY_ID }}/ion-gift-card-bot-webhook:${{ github.ref_name }}
+  BOT_POLLING_IMAGE: cr.yandex/${{ vars.YC_REGISTRY_ID }}/ion-gift-card-bot-polling:${{ github.ref_name }}
   MIGRATIONS_IMAGE: cr.yandex/${{ vars.YC_REGISTRY_ID }}/ion-gift-card-migrations:${{ github.ref_name }}
 
 jobs:
@@ -81,7 +84,7 @@ jobs:
           export_secret DB_USER
           export_secret DB_PASSWORD
           export_secret TELEGRAM_BOT_TOKEN
-          export_secret TELEGRAM_WEBHOOK_SECRET
+          export_secret WEB_APP_URL
 
       - name: Login to Yandex Cloud Container Registry
         uses: yc-actions/yc-cr-login@v3
@@ -93,10 +96,10 @@ jobs:
           docker build --target api -t "$API_IMAGE" .
           docker push "$API_IMAGE"
 
-      - name: Build and push bot webhook image
+      - name: Build and push bot polling image
         run: |
-          docker build --target bot-webhook -t "$BOT_WEBHOOK_IMAGE" .
-          docker push "$BOT_WEBHOOK_IMAGE"
+          docker build --target bot-long-polling -t "$BOT_POLLING_IMAGE" .
+          docker push "$BOT_POLLING_IMAGE"
 
       - name: Build and push migrations image
         run: |
@@ -147,42 +150,27 @@ jobs:
             DB_USER=${{ vars.YC_LOCKBOX_SECRET_ID }}/latest/DB_USER
             DB_PASSWORD=${{ vars.YC_LOCKBOX_SECRET_ID }}/latest/DB_PASSWORD
 
-      - name: Deploy bot webhook container
-        uses: yc-actions/yc-sls-container-deploy@v4
-        with:
-          yc-iam-token: ${{ steps.iam-token.outputs.token }}
-          folder-id: ${{ vars.YC_FOLDER_ID }}
-          container-name: ${{ vars.YC_BOT_CONTAINER_NAME }}
-          revision-service-account-id: ${{ vars.YC_RUNTIME_SA_ID }}
-          revision-image-url: ${{ env.BOT_WEBHOOK_IMAGE }}
-          revision-cores: 1
-          revision-memory: 512Mb
-          revision-core-fraction: 100
-          revision-concurrency: 8
-          revision-execution-timeout: 10
-          revision-network-id: ${{ vars.YC_NETWORK_ID }}
-          revision-env: |
-            TELEGRAM_MODE=webhook
-            API_HOST=0.0.0.0
-            DB_SSL=${{ vars.DB_SSL || 'true' }}
-            DB_POOL_MIN=${{ vars.DB_POOL_MIN || '0' }}
-            DB_POOL_MAX=${{ vars.DB_POOL_MAX || '2' }}
-          revision-secrets: |
-            DB_HOST=${{ vars.YC_LOCKBOX_SECRET_ID }}/latest/DB_HOST
-            DB_PORT=${{ vars.YC_LOCKBOX_SECRET_ID }}/latest/DB_PORT
-            DB_NAME=${{ vars.YC_LOCKBOX_SECRET_ID }}/latest/DB_NAME
-            DB_USER=${{ vars.YC_LOCKBOX_SECRET_ID }}/latest/DB_USER
-            DB_PASSWORD=${{ vars.YC_LOCKBOX_SECRET_ID }}/latest/DB_PASSWORD
-            TELEGRAM_BOT_TOKEN=${{ vars.YC_LOCKBOX_SECRET_ID }}/latest/TELEGRAM_BOT_TOKEN
-            TELEGRAM_WEBHOOK_SECRET=${{ vars.YC_LOCKBOX_SECRET_ID }}/latest/TELEGRAM_WEBHOOK_SECRET
-            WEB_APP_URL=${{ vars.YC_LOCKBOX_SECRET_ID }}/latest/WEB_APP_URL
-
-      - name: Register Telegram webhook
+      - name: Deploy bot polling VM
         env:
-          TELEGRAM_WEBHOOK_URL: ${{ vars.TELEGRAM_WEBHOOK_URL }}
-        run: |
-          webhook_base_url="${TELEGRAM_WEBHOOK_URL%/}"
+          YC_IAM_TOKEN: ${{ steps.iam-token.outputs.token }}
+          YC_BOT_VM_NAME: ${{ vars.YC_BOT_VM_NAME }}
+          YC_ZONE: ${{ vars.YC_ZONE }}
+          YC_SUBNET_ID: ${{ vars.YC_SUBNET_ID }}
+          YC_RUNTIME_SA_ID: ${{ vars.YC_RUNTIME_SA_ID }}
+          YC_FOLDER_ID: ${{ vars.YC_FOLDER_ID }}
+          YC_LOCKBOX_SECRET_ID: ${{ vars.YC_LOCKBOX_SECRET_ID }}
+          YC_BOT_VM_CORES: ${{ vars.YC_BOT_VM_CORES || '2' }}
+          YC_BOT_VM_MEMORY: ${{ vars.YC_BOT_VM_MEMORY || '2' }}
+          YC_BOT_VM_CORE_FRACTION: ${{ vars.YC_BOT_VM_CORE_FRACTION || '20' }}
+          YC_BOT_VM_DISK_SIZE: ${{ vars.YC_BOT_VM_DISK_SIZE || '16' }}
+          YC_BOT_VM_DISK_TYPE: ${{ vars.YC_BOT_VM_DISK_TYPE || 'network-hdd' }}
+          YC_BOT_VM_PLATFORM: ${{ vars.YC_BOT_VM_PLATFORM || 'standard-v3' }}
+          DB_SSL: ${{ vars.DB_SSL || 'true' }}
+          DB_POOL_MIN: ${{ vars.DB_POOL_MIN || '0' }}
+          DB_POOL_MAX: ${{ vars.DB_POOL_MAX || '2' }}
+        run: .github/scripts/deploy-yc-polling-vm.sh
 
-          curl --fail --show-error --silent "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/setWebhook" \
-            --data-urlencode "url=${webhook_base_url}/webhook" \
-            --data-urlencode "secret_token=${TELEGRAM_WEBHOOK_SECRET}"
+      - name: Disable Telegram webhook for polling
+        run: |
+          curl --fail --show-error --silent "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/deleteWebhook" \
+            --data-urlencode "drop_pending_updates=false"
