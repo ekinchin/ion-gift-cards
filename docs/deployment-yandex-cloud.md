@@ -102,7 +102,6 @@ YC_API_CONTAINER_NAME
 YC_LOCKBOX_SECRET_ID
 YC_NETWORK_ID
 YC_SUBNET_ID
-YC_ZONE
 ```
 
 Optional variables:
@@ -112,6 +111,7 @@ DB_SSL
 DB_POOL_MIN
 DB_POOL_MAX
 YC_BOT_VM_NAME
+YC_ZONE
 YC_BOT_VM_CORES
 YC_BOT_VM_MEMORY
 YC_BOT_VM_CORE_FRACTION
@@ -121,6 +121,7 @@ YC_BOT_VM_PLATFORM
 ```
 
 These values are identifiers and release settings. Application secrets stay in Lockbox.
+If `YC_ZONE` is omitted, the polling VM deploy script derives it from `YC_SUBNET_ID`.
 
 Default bot VM sizing used by the workflow:
 

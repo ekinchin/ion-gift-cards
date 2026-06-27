@@ -29,6 +29,44 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      - name: Validate deployment variables
+        env:
+          YC_CI_SA_ID: ${{ vars.YC_CI_SA_ID }}
+          YC_FOLDER_ID: ${{ vars.YC_FOLDER_ID }}
+          YC_REGISTRY_ID: ${{ vars.YC_REGISTRY_ID }}
+          YC_RUNTIME_SA_ID: ${{ vars.YC_RUNTIME_SA_ID }}
+          YC_API_CONTAINER_NAME: ${{ vars.YC_API_CONTAINER_NAME }}
+          YC_LOCKBOX_SECRET_ID: ${{ vars.YC_LOCKBOX_SECRET_ID }}
+          YC_NETWORK_ID: ${{ vars.YC_NETWORK_ID }}
+          YC_SUBNET_ID: ${{ vars.YC_SUBNET_ID }}
+        run: |
+          set -euo pipefail
+
+          required_vars=(
+            YC_CI_SA_ID
+            YC_FOLDER_ID
+            YC_REGISTRY_ID
+            YC_RUNTIME_SA_ID
+            YC_API_CONTAINER_NAME
+            YC_LOCKBOX_SECRET_ID
+            YC_NETWORK_ID
+            YC_SUBNET_ID
+          )
+
+          missing_vars=()
+          for var_name in "${required_vars[@]}"; do
+            if [[ -z "${!var_name:-}" ]]; then
+              missing_vars+=("$var_name")
+            fi
+          done
+
+          if (( ${#missing_vars[@]} > 0 )); then
+            printf 'Missing required GitHub Actions variables:\n' >&2
+            printf ' - %s\n' "${missing_vars[@]}" >&2
+            printf 'Add them as repository or production environment variables.\n' >&2
+            exit 1
+          fi
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:

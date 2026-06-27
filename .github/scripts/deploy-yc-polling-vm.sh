@@ -3,7 +3,6 @@ set -euo pipefail
 
 required_vars=(
   YC_BOT_VM_NAME
-  YC_ZONE
   YC_SUBNET_ID
   YC_RUNTIME_SA_ID
   YC_FOLDER_ID
@@ -11,12 +10,18 @@ required_vars=(
   BOT_POLLING_IMAGE
 )
 
+missing_vars=()
 for var_name in "${required_vars[@]}"; do
   if [[ -z "${!var_name:-}" ]]; then
-    echo "Required environment variable is not set: ${var_name}" >&2
-    exit 1
+    missing_vars+=("$var_name")
   fi
 done
+
+if (( ${#missing_vars[@]} > 0 )); then
+  printf 'Missing required environment variables:\n' >&2
+  printf ' - %s\n' "${missing_vars[@]}" >&2
+  exit 1
+fi
 
 vm_cores="${YC_BOT_VM_CORES:-2}"
 vm_memory="${YC_BOT_VM_MEMORY:-2}"
@@ -27,6 +32,22 @@ vm_platform="${YC_BOT_VM_PLATFORM:-standard-v3}"
 db_ssl="${DB_SSL:-true}"
 db_pool_min="${DB_POOL_MIN:-0}"
 db_pool_max="${DB_POOL_MAX:-2}"
+
+if [[ -z "${YC_ZONE:-}" ]]; then
+  echo "YC_ZONE is not set; deriving it from subnet ${YC_SUBNET_ID}"
+
+  if ! command -v jq >/dev/null 2>&1; then
+    echo "jq is required to derive YC_ZONE from YC_SUBNET_ID" >&2
+    exit 1
+  fi
+
+  YC_ZONE="$(yc vpc subnet get "$YC_SUBNET_ID" --format json | jq -r '.zone_id // empty')"
+
+  if [[ -z "$YC_ZONE" ]]; then
+    echo "Could not derive YC_ZONE from subnet ${YC_SUBNET_ID}" >&2
+    exit 1
+  fi
+fi
 
 cloud_config_file="$(mktemp)"
 trap 'rm -f "$cloud_config_file"' EXIT

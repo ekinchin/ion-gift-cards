@@ -312,14 +312,14 @@ VM создаётся автоматически workflow через `yc compute
 Обязательные GitHub variables:
 
 ```text
-YC_ZONE=<zone_id>
 YC_SUBNET_ID=<subnet_id>
 ```
 
-Опциональные GitHub variables с defaults:
+Опциональные GitHub variables:
 
 ```text
 YC_BOT_VM_NAME=ion-gift-card-bot
+YC_ZONE=<zone_id>
 YC_BOT_VM_CORES=2
 YC_BOT_VM_MEMORY=2
 YC_BOT_VM_CORE_FRACTION=20
@@ -327,6 +327,8 @@ YC_BOT_VM_DISK_SIZE=16
 YC_BOT_VM_DISK_TYPE=network-hdd
 YC_BOT_VM_PLATFORM=standard-v3
 ```
+
+Если `YC_ZONE` не задана, deploy script определяет её из `YC_SUBNET_ID`.
 
 VM получает public NAT только для исходящего доступа к Telegram API. Inbound HTTP для polling bot не нужен.
 
@@ -356,7 +358,6 @@ YC_RUNTIME_SA_ID=<runtime_service_account_id>
 YC_API_CONTAINER_NAME=ion-gift-card-api
 YC_NETWORK_ID=<network_id>
 YC_SUBNET_ID=<subnet_id>
-YC_ZONE=<zone_id>
 YC_BOT_VM_NAME=ion-gift-card-bot
 YC_LOCKBOX_SECRET_ID=<lockbox_secret_id>
 ```
