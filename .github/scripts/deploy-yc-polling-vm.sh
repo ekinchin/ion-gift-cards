@@ -83,8 +83,13 @@ write_files:
         | sed -n 's/.*"\(access_token\|accessToken\|iamToken\|token\)"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\2/p' \
         | head -n 1)"
 
+      if [[ -z "\$iam_token" && -n "\$metadata_token_response" ]]; then
+        iam_token="\$(printf '%s' "\$metadata_token_response" | tr -d '[:space:]')"
+      fi
+
       if [[ -z "\$iam_token" ]]; then
         echo "Could not read IAM token from VM metadata service" >&2
+        printf 'Metadata token response bytes: %s\n' "\${#metadata_token_response}" >&2
         printf 'Metadata token response keys: ' >&2
         printf '%s' "\$metadata_token_response" \
           | grep -o '"[^"]*"[[:space:]]*:' \
