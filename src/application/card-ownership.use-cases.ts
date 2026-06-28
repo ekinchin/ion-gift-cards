@@ -3,10 +3,10 @@ import type { Knex } from 'knex';
 import { db } from '../db/knex.ts';
 import type { Card, IdentityProvider, Transaction } from '../types/index.ts';
 import { generateCardCode } from './card-code.generator.ts';
+import { assertCanReadCardHistory, type Actor } from './card-access-policy.ts';
 import {
   CardAlreadyLinkedError,
   CardAlreadyLinkedToCustomerError,
-  CardHistoryAccessDeniedError,
   CardNotFoundError,
   CardOwnershipRequiredError,
   CustomerAlreadyHasCardError,
@@ -199,7 +199,7 @@ export class CardOwnershipUseCases {
 
   async getHistoryByCode(
     code: string,
-    actor: { customerId?: string; operatorId?: string } = {}
+    actor: Actor = {}
   ): Promise<{ card: Card; transactions: Transaction[] }> {
     const card = await this.#cardRepo.findByCode(code);
     if (!card) {
@@ -207,9 +207,7 @@ export class CardOwnershipUseCases {
     }
 
     const owner = await this.#ownershipRepo.findOwnerByCardId(card.id);
-    if (owner && owner.customer_id !== actor.customerId && !actor.operatorId) {
-      throw new CardHistoryAccessDeniedError();
-    }
+    assertCanReadCardHistory(actor, owner);
 
     const transactions = await this.#txRepo.findByCardId(card.id);
     return { card, transactions };

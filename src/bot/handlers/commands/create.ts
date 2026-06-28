@@ -3,13 +3,12 @@ import { cardService } from '../../../services/index.ts';
 import { replyWithCardQr } from '../../card-qr.ts';
 import { parseCreateCardAmount } from '../../create-card-command.ts';
 import type { MyContext } from '../../context.ts';
-import { getOperator } from '../operators.ts';
+import { requireBotOperator } from '../access.ts';
 
 export async function createGiftCardCommandHandler(ctx: CommandContext<MyContext>) {
   ctx.session.action = undefined;
-  const operator = await getOperator(ctx.from?.id || 0);
-  if (!operator) {
-    await ctx.reply('❌ У вас нет прав для этой операции');
+  const operatorId = await requireBotOperator(ctx);
+  if (!operatorId) {
     return;
   }
   const amount = parseCreateCardAmount(ctx.match);
@@ -24,7 +23,7 @@ export async function createGiftCardCommandHandler(ctx: CommandContext<MyContext
   }
 
   try {
-    const card = await cardService.createCard(amount.amount, operator.id);
+    const card = await cardService.createCard(amount.amount, operatorId);
     await replyWithCardQr(ctx, '✅ Подарочная карта создана', card);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Ошибка';

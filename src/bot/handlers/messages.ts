@@ -8,7 +8,7 @@ import {
   replyBalance,
   replyHistory,
 } from './card-replies.ts';
-import { getOperator } from './operators.ts';
+import { requireBotOperator } from './access.ts';
 import { handleMenuButton, handlePendingMenuAction } from './menu-handlers.ts';
 
 export function registerMessageHandlers(bot: Bot<MyContext>, telegramConfig: TelegramConfig) {
@@ -35,20 +35,19 @@ export function registerMessageHandlers(bot: Bot<MyContext>, telegramConfig: Tel
       return;
     }
 
-    const operator = await getOperator(ctx.from?.id || 0);
-    if (!operator) {
-      await ctx.reply('❌ У вас нет прав для этой операции');
+    const operatorId = await requireBotOperator(ctx);
+    if (!operatorId) {
       return;
     }
 
     try {
       if (payload.action === 'debit') {
-        const card = await cardService.debit(payload.code, payload.amount!, operator.id, payload.description);
+        const card = await cardService.debit(payload.code, payload.amount!, operatorId, payload.description);
         await ctx.reply(`✅ Списано: ${payload.amount} ₽\n💳 Карта: ${payload.code}\n💰 Остаток: ${card.balance} ₽`);
         return;
       }
 
-      const card = await cardService.credit(payload.code, payload.amount!, operator.id, payload.description);
+      const card = await cardService.credit(payload.code, payload.amount!, operatorId, payload.description);
       await ctx.reply(`✅ Пополнено: ${payload.amount} ₽\n💳 Карта: ${payload.code}\n💰 Баланс: ${card.balance} ₽`);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Ошибка';

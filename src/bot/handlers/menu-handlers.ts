@@ -7,8 +7,8 @@ import {
   getPendingActionForMenuAction,
   parsePendingMenuActionInput,
 } from '../pending-menu-action.ts';
+import { requireBotOperator } from './access.ts';
 import { replyScanPrompt } from './keyboards.ts';
-import { getOperator } from './operators.ts';
 import {
   createPersonalCardForCurrentCustomer,
   replyExistingLinkedCard,
@@ -70,12 +70,25 @@ export async function handleMenuButton(
   }
 
   if (action === 'debit') {
+    if (!await requireBotOperator(ctx)) {
+      ctx.session.action = undefined;
+      return true;
+    }
     await ctx.reply('Введите сумму для списания: /debit <сумма> [описание]');
     return true;
   }
 
   if (action === 'credit') {
+    if (!await requireBotOperator(ctx)) {
+      ctx.session.action = undefined;
+      return true;
+    }
     await ctx.reply('Введите сумму для пополнения: /credit <сумма> [описание]');
+    return true;
+  }
+
+  if (!await requireBotOperator(ctx)) {
+    ctx.session.action = undefined;
     return true;
   }
 
@@ -122,14 +135,13 @@ export async function handlePendingMenuAction(
     return true;
   }
 
-  const operator = await getOperator(ctx.from?.id || 0);
-  if (!operator) {
-    await ctx.reply('❌ У вас нет прав для этой операции');
+  const operatorId = await requireBotOperator(ctx);
+  if (!operatorId) {
     return true;
   }
 
   try {
-    const card = await cardService.createCard(pending.amount, operator.id);
+    const card = await cardService.createCard(pending.amount, operatorId);
     await replyWithCardQr(ctx, '✅ Карта создана', card);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Ошибка';

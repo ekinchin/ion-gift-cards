@@ -5,6 +5,7 @@ import { cardOwnershipService, operatorRepository } from '../src/services/index.
 import { handleMenuButton } from '../src/bot/handlers/menu-handlers.ts';
 import { createLinkCommandHandler } from '../src/bot/handlers/commands/link.ts';
 import { unlinkCommandHandler } from '../src/bot/handlers/commands/unlink.ts';
+import { menuButtonLabels } from '../src/bot/menu.ts';
 
 const now = new Date('2026-06-28T10:00:00.000Z');
 const telegramConfig = { token: 'token', webAppUrl: 'https://example.com/qr' };
@@ -107,6 +108,22 @@ test('menu history shows the linked card history without prompting for QR', asyn
   } finally {
     restoreHistory();
     restoreResolve();
+  }
+});
+
+test('operator menu actions require operator access before prompting for amount', async () => {
+  const ctx = makeContext();
+  const restoreOperator = patchMethod(operatorRepository, 'findByTelegramId', async () => null);
+
+  try {
+    const handled = await handleMenuButton(ctx as never, menuButtonLabels.debit, telegramConfig);
+
+    assert.equal(handled, true);
+    assert.equal(ctx.replies.length, 1);
+    assert.equal(ctx.replies[0]!.text, '❌ У вас нет прав для этой операции');
+    assert.equal(ctx.session.action, undefined);
+  } finally {
+    restoreOperator();
   }
 });
 
