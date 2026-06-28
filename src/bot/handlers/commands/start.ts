@@ -10,7 +10,7 @@ export async function startCommandHandler(ctx: CommandContext<MyContext>) {
     await ctx.reply(
       '👋 Добро пожаловать, оператор!\n\n' +
       'Выберите действие на клавиатуре ниже.',
-      { reply_markup: mainMenuKeyboard() }
+      { reply_markup: mainMenuKeyboard(true) }
     );
   } else {
     await ctx.reply(
@@ -18,7 +18,7 @@ export async function startCommandHandler(ctx: CommandContext<MyContext>) {
       'Отправьте код вашего сертификата, чтобы узнать баланс.\n' +
       'Для восстановления доступа привяжите карту командой /link <код>.\n' +
       'Или выберите действие на клавиатуре ниже.',
-      { reply_markup: mainMenuKeyboard() }
+      { reply_markup: mainMenuKeyboard(false) }
     );
   }
 }

@@ -37,13 +37,19 @@ export function scanKeyboard(
   );
 }
 
-export function mainMenuKeyboard() {
-  return new Keyboard()
+export function mainMenuKeyboard(isOperator = false) {
+  const keyboard = new Keyboard()
     .text(menuButtonLabels.balance)
     .text(menuButtonLabels.history)
     .row()
     .text(menuButtonLabels.mycards)
-    .text(menuButtonLabels.link)
+    .text(menuButtonLabels.link);
+
+  if (!isOperator) {
+    return keyboard.resized();
+  }
+
+  return keyboard
     .row()
     .text(menuButtonLabels.debit)
     .text(menuButtonLabels.credit)
