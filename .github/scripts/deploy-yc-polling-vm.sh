@@ -53,7 +53,16 @@ cloud_config_file="$(mktemp)"
 trap 'rm -f "$cloud_config_file"' EXIT
 chmod 600 "$cloud_config_file"
 
-cat > "$cloud_config_file" <<EOF
+replace_placeholder() {
+  local placeholder="$1"
+  local value="$2"
+  local escaped_value
+
+  escaped_value="$(printf '%s' "$value" | sed 's/[&|\]/\\&/g')"
+  sed -i "s|${placeholder}|${escaped_value}|g" "$cloud_config_file"
+}
+
+cat > "$cloud_config_file" <<'EOF'
 #cloud-config
 write_files:
   - path: /opt/ion-gift-card/run-bot.sh
@@ -65,33 +74,33 @@ write_files:
       exec > >(tee -a /var/log/ion-gift-card-bot-startup.log /dev/console) 2>&1
       export HOME=/root
 
-      image="${BOT_POLLING_IMAGE}"
-      folder_id="${YC_FOLDER_ID}"
-      lockbox_secret_id="${YC_LOCKBOX_SECRET_ID}"
+      image="__BOT_POLLING_IMAGE__"
+      folder_id="__YC_FOLDER_ID__"
+      lockbox_secret_id="__YC_LOCKBOX_SECRET_ID__"
       yc_bin="/root/yandex-cloud/bin/yc"
       env_file="/etc/ion-gift-card-bot.env"
 
-      if [[ ! -x "\$yc_bin" ]]; then
+      if [[ ! -x "$yc_bin" ]]; then
         curl --fail --silent --show-error --location https://storage.yandexcloud.net/yandexcloud-yc/install.sh | bash -s -- -a
       fi
 
-      metadata_token_response="\$(curl --fail --silent --show-error \
+      metadata_token_response="$(curl --fail --silent --show-error \
         --header 'Metadata-Flavor: Google' \
         http://169.254.169.254/computeMetadata/v1/instance/service-accounts/default/token)"
 
-      iam_token="\$(printf '%s' "\$metadata_token_response" \
+      iam_token="$(printf '%s' "$metadata_token_response" \
         | sed -n 's/.*"\(access_token\|accessToken\|iamToken\|token\)"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\2/p' \
         | head -n 1)"
 
-      if [[ -z "\$iam_token" && -n "\$metadata_token_response" ]]; then
-        iam_token="\$(printf '%s' "\$metadata_token_response" | tr -d '[:space:]')"
+      if [[ -z "$iam_token" && -n "$metadata_token_response" ]]; then
+        iam_token="$(printf '%s' "$metadata_token_response" | tr -d '[:space:]')"
       fi
 
-      if [[ -z "\$iam_token" ]]; then
+      if [[ -z "$iam_token" ]]; then
         echo "Could not read IAM token from VM metadata service" >&2
-        printf 'Metadata token response bytes: %s\n' "\${#metadata_token_response}" >&2
+        printf 'Metadata token response bytes: %s\n' "${#metadata_token_response}" >&2
         printf 'Metadata token response keys: ' >&2
-        printf '%s' "\$metadata_token_response" \
+        printf '%s' "$metadata_token_response" \
           | grep -o '"[^"]*"[[:space:]]*:' \
           | sed 's/[":[:space:]]//g' \
           | tr '\n' ' ' >&2 || true
@@ -99,12 +108,12 @@ write_files:
         exit 1
       fi
 
-      "\$yc_bin" config profile create vm-runtime >/dev/null 2>&1 || true
-      "\$yc_bin" config set folder-id "\$folder_id"
+      "$yc_bin" config profile create vm-runtime >/dev/null 2>&1 || true
+      "$yc_bin" config set folder-id "$folder_id"
 
       read_secret() {
-        local key="\$1"
-        YC_IAM_TOKEN="\$iam_token" "\$yc_bin" lockbox payload get --id "\$lockbox_secret_id" --key "\$key"
+        local key="$1"
+        YC_IAM_TOKEN="$iam_token" "$yc_bin" lockbox payload get --id "$lockbox_secret_id" --key "$key"
       }
 
       until docker info >/dev/null 2>&1; do
@@ -115,26 +124,26 @@ write_files:
       umask 077
       {
         echo "TELEGRAM_MODE=polling"
-        echo "DB_HOST=\$(read_secret DB_HOST)"
-        echo "DB_PORT=\$(read_secret DB_PORT)"
-        echo "DB_NAME=\$(read_secret DB_NAME)"
-        echo "DB_USER=\$(read_secret DB_USER)"
-        echo "DB_PASSWORD=\$(read_secret DB_PASSWORD)"
-        echo "DB_SSL=${db_ssl}"
-        echo "DB_POOL_MIN=${db_pool_min}"
-        echo "DB_POOL_MAX=${db_pool_max}"
-        echo "TELEGRAM_BOT_TOKEN=\$(read_secret TELEGRAM_BOT_TOKEN)"
-        echo "WEB_APP_URL=\$(read_secret WEB_APP_URL)"
-      } > "\$env_file"
+        echo "DB_HOST=$(read_secret DB_HOST)"
+        echo "DB_PORT=$(read_secret DB_PORT)"
+        echo "DB_NAME=$(read_secret DB_NAME)"
+        echo "DB_USER=$(read_secret DB_USER)"
+        echo "DB_PASSWORD=$(read_secret DB_PASSWORD)"
+        echo "DB_SSL=__DB_SSL__"
+        echo "DB_POOL_MIN=__DB_POOL_MIN__"
+        echo "DB_POOL_MAX=__DB_POOL_MAX__"
+        echo "TELEGRAM_BOT_TOKEN=$(read_secret TELEGRAM_BOT_TOKEN)"
+        echo "WEB_APP_URL=$(read_secret WEB_APP_URL)"
+      } > "$env_file"
 
-      echo "\$iam_token" | docker login --username iam --password-stdin cr.yandex
-      docker pull "\$image"
+      echo "$iam_token" | docker login --username iam --password-stdin cr.yandex
+      docker pull "$image"
       docker rm -f ion-gift-card-bot >/dev/null 2>&1 || true
       docker run --detach \
         --name ion-gift-card-bot \
         --restart always \
-        --env-file "\$env_file" \
-        "\$image"
+        --env-file "$env_file" \
+        "$image"
 
   - path: /etc/systemd/system/ion-gift-card-bot.service
     owner: root:root
@@ -161,6 +170,13 @@ runcmd:
   - systemctl daemon-reload
   - systemctl enable --now ion-gift-card-bot.service
 EOF
+
+replace_placeholder "__BOT_POLLING_IMAGE__" "$BOT_POLLING_IMAGE"
+replace_placeholder "__YC_FOLDER_ID__" "$YC_FOLDER_ID"
+replace_placeholder "__YC_LOCKBOX_SECRET_ID__" "$YC_LOCKBOX_SECRET_ID"
+replace_placeholder "__DB_SSL__" "$db_ssl"
+replace_placeholder "__DB_POOL_MIN__" "$db_pool_min"
+replace_placeholder "__DB_POOL_MAX__" "$db_pool_max"
 
 if yc compute instance get "$YC_BOT_VM_NAME" >/dev/null 2>&1; then
   echo "Deleting existing polling bot VM before recreating it: ${YC_BOT_VM_NAME}"
