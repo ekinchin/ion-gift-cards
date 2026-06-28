@@ -1,5 +1,6 @@
 import type { TelegramConfig } from '../../configuration/configuration-service.ts';
 import { cardService } from '../../services/index.ts';
+import { replyWithCardQr } from '../card-qr.ts';
 import type { MyContext } from '../context.ts';
 import { parseMenuButton } from '../menu.ts';
 import {
@@ -126,7 +127,7 @@ export async function handlePendingMenuAction(
 
   try {
     const card = await cardService.createCard(pending.amount, operator.id);
-    await ctx.reply(`✅ Карта создана!\n💳 Код: ${card.code}\n💰 Баланс: ${card.balance} ₽`);
+    await replyWithCardQr(ctx, '✅ Карта создана', card);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Ошибка';
     await ctx.reply(`❌ ${message}`);

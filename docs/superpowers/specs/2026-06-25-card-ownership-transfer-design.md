@@ -107,7 +107,7 @@ The public code remains a bearer-style card identifier:
 - existing API routes that take `:code` can continue to work;
 - customer ownership does not replace public code usage.
 
-Future QR payload versioning can be added independently. The recommended path is a compact versioned string such as `ion-gift:v1:<code>`, while continuing to accept legacy plain `<code>`.
+Bot-generated QR images currently encode the plain text `cards.code`, so the same scanner and manual-entry workflows read the same value. Future QR payload versioning can be added independently if needed, while continuing to accept legacy plain `<code>`.
 
 ## Use Cases
 
@@ -191,8 +191,8 @@ Flow:
 
 1. Adapter resolves current customer.
 2. Customer selects an owned card.
-3. Bot shows the public `cards.code`.
-4. Later implementation may render a QR image from the same public code or versioned QR payload.
+3. Bot shows a QR image generated from the public `cards.code`.
+4. Bot keeps the public `cards.code` in the message caption so it can be copied or entered manually.
 
 The public code remains enough for the operator to perform the existing scan/manual workflows.
 
@@ -295,7 +295,6 @@ Implementation should include focused tests for:
 
 ## Deferred Decisions
 
-- Exact QR payload versioning format.
-- QR image rendering in the bot.
+- Whether to introduce a versioned QR payload format beyond the current plain `cards.code`.
 - Whether to allow explicit transfer cancellation in the first implementation.
 - Whether public code balance lookup should remain open long term or become rate-limited/protected.

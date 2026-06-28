@@ -1,4 +1,5 @@
 import { cardOwnershipService, cardService } from '../../services/index.ts';
+import { replyWithCardQr } from '../card-qr.ts';
 import type { MyContext } from '../context.ts';
 
 export async function replyBalance(ctx: MyContext, code: string) {
@@ -39,7 +40,7 @@ export async function replyMyCards(ctx: MyContext) {
   }
 
   const card = cards[0]!;
-  await ctx.reply(`🎟️ Ваша карта:\n💳 ${card.code}\n💰 Баланс: ${card.balance} ₽`);
+  await replyWithCardQr(ctx, '🎟️ Ваша карта', card);
 }
 
 export async function createPersonalCardForCurrentCustomer(ctx: MyContext) {
@@ -49,7 +50,7 @@ export async function createPersonalCardForCurrentCustomer(ctx: MyContext) {
   try {
     const { card, created } = await cardOwnershipService.createPersonalCard(customer.id);
     const title = created ? '✅ Ваша карта создана' : 'ℹ️ У вас уже есть карта';
-    await ctx.reply(`${title}\n💳 Карта: ${card.code}\n💰 Баланс: ${card.balance} ₽`);
+    await replyWithCardQr(ctx, title, card);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Ошибка';
     await ctx.reply(`❌ ${message}`);
@@ -62,7 +63,11 @@ export async function replyOwnedBalance(ctx: MyContext, code?: string) {
 
   try {
     const { card, balance } = await cardOwnershipService.getOwnedBalance(customer.id, code);
-    await ctx.reply(`💳 Карта: ${card.code}\n💰 Баланс: ${balance} ₽`);
+    if (code) {
+      await ctx.reply(`💳 Карта: ${card.code}\n💰 Баланс: ${balance} ₽`);
+      return;
+    }
+    await replyWithCardQr(ctx, '💳 Ваша карта', { ...card, balance });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Ошибка';
     await ctx.reply(`❌ ${message}`);
