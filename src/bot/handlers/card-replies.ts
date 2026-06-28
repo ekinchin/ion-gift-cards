@@ -1,7 +1,7 @@
 import { cardOwnershipService, cardService } from '../../services/index.ts';
 import { replyWithCardQr } from '../card-qr.ts';
 import type { MyContext } from '../context.ts';
-import { getOperator } from './operators.ts';
+import { resolveBotActor } from './access.ts';
 
 export async function replyBalance(ctx: MyContext, code: string) {
   try {
@@ -152,14 +152,14 @@ export async function unlinkCurrentCardFromCurrentCustomer(ctx: MyContext) {
 
 export async function replyHistory(ctx: MyContext, code: string) {
   try {
-    const operator = await getOperator(ctx.from?.id || 0);
-    const customer = operator ? null : await resolveCurrentCustomer(ctx);
-    if (!operator && !customer) return;
+    const actor = await resolveBotActor(ctx);
+    if (!actor.operatorId) {
+      const customer = await resolveCurrentCustomer(ctx);
+      if (!customer) return;
+      actor.customerId = customer.id;
+    }
 
-    const { card, transactions } = await cardOwnershipService.getHistoryByCode(code, {
-      customerId: customer?.id,
-      operatorId: operator?.id,
-    });
+    const { card, transactions } = await cardOwnershipService.getHistoryByCode(code, actor);
     if (transactions.length === 0) {
       await ctx.reply(`💳 Карта: ${card.code}\n📋 История пуста`);
       return;

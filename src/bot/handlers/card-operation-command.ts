@@ -4,8 +4,8 @@ import { cardService } from '../../services/index.ts';
 import type { MyContext } from '../context.ts';
 import type { ScanAction } from '../scan-web-app.ts';
 import { parsePositiveAmount } from './amount.ts';
+import { requireBotOperator } from './access.ts';
 import { replyScanPrompt } from './keyboards.ts';
-import { getOperator } from './operators.ts';
 
 type CardOperationKind = Extract<ScanAction, 'debit' | 'credit'>;
 
@@ -89,9 +89,8 @@ export function createCardOperationCommandHandler(
 
   return async function cardOperationCommandHandler(ctx: CommandContext<MyContext>) {
     ctx.session.action = undefined;
-    const operator = await getOperator(ctx.from?.id || 0);
-    if (!operator) {
-      await ctx.reply('❌ У вас нет прав для этой операции');
+    const operatorId = await requireBotOperator(ctx);
+    if (!operatorId) {
       return;
     }
 
@@ -104,8 +103,8 @@ export function createCardOperationCommandHandler(
     if (command.mode === 'direct') {
       try {
         const card = kind === 'debit'
-          ? await cardService.debit(command.code, command.amount, operator.id, command.description)
-          : await cardService.credit(command.code, command.amount, operator.id, command.description);
+          ? await cardService.debit(command.code, command.amount, operatorId, command.description)
+          : await cardService.credit(command.code, command.amount, operatorId, command.description);
         await ctx.reply(copy.success(command.amount, command.code, card.balance));
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Ошибка';
