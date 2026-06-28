@@ -37,6 +37,7 @@ jobs:
           YC_RUNTIME_SA_ID: ${{ vars.YC_RUNTIME_SA_ID }}
           YC_API_CONTAINER_NAME: ${{ vars.YC_API_CONTAINER_NAME }}
           YC_LOCKBOX_SECRET_ID: ${{ vars.YC_LOCKBOX_SECRET_ID }}
+          YC_QR_MINI_APP_BUCKET: ${{ vars.YC_QR_MINI_APP_BUCKET }}
           YC_NETWORK_ID: ${{ vars.YC_NETWORK_ID }}
           YC_SUBNET_ID: ${{ vars.YC_SUBNET_ID }}
           YC_ZONE: ${{ vars.YC_ZONE }}
@@ -61,6 +62,7 @@ jobs:
             YC_RUNTIME_SA_ID
             YC_API_CONTAINER_NAME
             YC_LOCKBOX_SECRET_ID
+            YC_QR_MINI_APP_BUCKET
             YC_NETWORK_ID
             YC_SUBNET_ID
           )
@@ -169,6 +171,30 @@ jobs:
           export_secret TELEGRAM_BOT_TOKEN
           export_secret WEB_APP_URL
 
+      - name: Deploy QR Mini App to Object Storage
+        env:
+          YC_IAM_TOKEN: ${{ steps.iam-token.outputs.token }}
+          YC_QR_MINI_APP_BUCKET: ${{ vars.YC_QR_MINI_APP_BUCKET }}
+        run: |
+          set -euo pipefail
+
+          qr_mini_app_url="https://storage.yandexcloud.net/${YC_QR_MINI_APP_BUCKET}/qr.html"
+
+          if [[ "$WEB_APP_URL" != "$qr_mini_app_url" ]]; then
+            printf 'WEB_APP_URL must point to the static QR Mini App object.\n' >&2
+            printf 'Expected: %s\n' "$qr_mini_app_url" >&2
+            printf 'Actual:   %s\n' "$WEB_APP_URL" >&2
+            printf 'Update WEB_APP_URL in Lockbox before deploying.\n' >&2
+            exit 1
+          fi
+
+          yc storage s3 cp src/api/qr-mini-app.html "s3://${YC_QR_MINI_APP_BUCKET}/qr.html" \
+            --acl public-read \
+            --content-type 'text/html; charset=utf-8' \
+            --cache-control 'no-cache, no-store, must-revalidate'
+
+          curl --fail --show-error --silent "$WEB_APP_URL" >/dev/null
+
       - name: Login to Yandex Cloud Container Registry
         uses: yc-actions/yc-cr-login@v3
         with:
@@ -258,3 +284,21 @@ jobs:
         run: |
           curl --fail --show-error --silent "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/deleteWebhook" \
             --data-urlencode "drop_pending_updates=false"
+
+      - name: Verify Telegram QR Mini App URL
+        run: |
+          set -euo pipefail
+
+          menu_button="$(jq -nc --arg url "$WEB_APP_URL" '{type:"web_app",text:"Сканировать QR",web_app:{url:$url}}')"
+          curl --fail --show-error --silent "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/setChatMenuButton" \
+            --data-urlencode "menu_button=${menu_button}" >/dev/null
+
+          actual_url="$(curl --fail --show-error --silent "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getChatMenuButton" \
+            | jq -r '.result.web_app.url // empty')"
+
+          if [[ "$actual_url" != "$WEB_APP_URL" ]]; then
+            printf 'Telegram menu button points to unexpected URL.\n' >&2
+            printf 'Expected: %s\n' "$WEB_APP_URL" >&2
+            printf 'Actual:   %s\n' "$actual_url" >&2
+            exit 1
+          fi

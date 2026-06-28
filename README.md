@@ -89,10 +89,10 @@ npm run dev
 npm run bot
 ```
 
-Для QR-сканера Telegram Mini App укажите публичный HTTPS URL страницы `/qr`:
+Для QR-сканера Telegram Mini App укажите публичный HTTPS URL страницы. В production страница публикуется как статический `qr.html` в Yandex Object Storage, чтобы клиент Telegram не зависел от доступности Serverless Container из сети пользователя:
 
 ```bash
-WEB_APP_URL=https://your-domain.example/qr npm run bot
+WEB_APP_URL=https://storage.yandexcloud.net/<bucket>/qr.html npm run bot
 ```
 
 Без `WEB_APP_URL` бот продолжит работать без кнопки сканирования.

@@ -120,6 +120,12 @@ until docker info >/dev/null 2>&1; do
 done
 
 umask 077
+web_app_url="$(read_secret WEB_APP_URL)"
+if [[ "$web_app_url" != https://* ]]; then
+  echo "WEB_APP_URL must be an HTTPS URL, got: ${web_app_url}" >&2
+  exit 1
+fi
+
 {
   echo "TELEGRAM_MODE=polling"
   echo "DB_HOST=$(read_secret DB_HOST)"
@@ -131,8 +137,10 @@ umask 077
   echo "DB_POOL_MIN=__DB_POOL_MIN__"
   echo "DB_POOL_MAX=__DB_POOL_MAX__"
   echo "TELEGRAM_BOT_TOKEN=$(read_secret TELEGRAM_BOT_TOKEN)"
-  echo "WEB_APP_URL=$(read_secret WEB_APP_URL)"
+  echo "WEB_APP_URL=${web_app_url}"
 } > "$env_file"
+
+echo "Bot WEB_APP_URL=${web_app_url}"
 
 ycr_helper="$(command -v docker-credential-ycr || true)"
 if [[ -n "$ycr_helper" ]]; then

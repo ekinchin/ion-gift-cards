@@ -140,7 +140,7 @@ cat > lockbox-payload.json <<'JSON'
   {"key":"DB_PASSWORD","text_value":"<db_password>"},
   {"key":"TELEGRAM_BOT_TOKEN","text_value":"<bot_token>"},
   {"key":"TELEGRAM_WEBHOOK_SECRET","text_value":"<generated_secret_for_legacy_webhook_workflow>"},
-  {"key":"WEB_APP_URL","text_value":"<api_domain>/qr"}
+  {"key":"WEB_APP_URL","text_value":"https://storage.yandexcloud.net/<qr_mini_app_bucket>/qr.html"}
 ]
 JSON
 ```
@@ -293,8 +293,8 @@ yc serverless container list
 
 ```bash
 yc serverless container add-access-binding ion-gift-card-api \
-  --role serverless-containers.invoker \
-  --all-users
+  --role serverless.containers.invoker \
+  --subject system:allUsers
 ```
 
 Сохраните:
@@ -305,10 +305,24 @@ YC_API_CONTAINER_NAME=ion-gift-card-api
 
 Bot больше не создаётся как Serverless Container: Telegram updates забираются через long polling с Compute VM, поэтому публичный endpoint для Telegram не нужен.
 
+Создайте отдельный Object Storage bucket для статического Telegram Mini App. Для QR HTML достаточно маленького лимита:
+
+```bash
+yc storage bucket create ion-gift-card-qr-mini-app-<suffix> \
+  --max-size 10485760 \
+  --public-read
+```
+
+Сохраните имя bucket в GitHub production variable:
+
+```text
+YC_QR_MINI_APP_BUCKET=ion-gift-card-qr-mini-app-<suffix>
+```
+
 Обновите `WEB_APP_URL` в Lockbox на production URL для QR mini app:
 
 ```text
-WEB_APP_URL=<api_domain>/qr
+WEB_APP_URL=https://storage.yandexcloud.net/<qr_mini_app_bucket>/qr.html
 ```
 
 ## 10a. Подготовить Compute VM параметры для polling bot
