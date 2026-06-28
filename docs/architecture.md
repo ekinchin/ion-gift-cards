@@ -16,7 +16,7 @@ Money is still represented as JavaScript `number` in application code. The curre
 
 ## Accepted Design: Customer Card Ownership
 
-Gift cards keep the current split between the internal `cards.id` and public `cards.code`. The public code remains the QR/manual-entry identifier for operator workflows.
+Gift cards keep the current split between the internal `cards.id` and public `cards.code`. The public code remains the QR/manual-entry identifier for operator workflows. Bot-generated QR images encode exactly the plain text `cards.code`; they are generated on demand with `qrcode` and are not stored in the database.
 
 The next ownership model adds provider-neutral customers:
 

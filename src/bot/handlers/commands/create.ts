@@ -1,5 +1,6 @@
 import type { CommandContext } from 'grammy';
 import { cardService } from '../../../services/index.ts';
+import { replyWithCardQr } from '../../card-qr.ts';
 import { parseCreateCardAmount } from '../../create-card-command.ts';
 import type { MyContext } from '../../context.ts';
 import { getOperator } from '../operators.ts';
@@ -24,7 +25,7 @@ export async function createGiftCardCommandHandler(ctx: CommandContext<MyContext
 
   try {
     const card = await cardService.createCard(amount.amount, operator.id);
-    await ctx.reply(`✅ Подарочная карта создана!\n💳 Код: ${card.code}\n💰 Баланс: ${card.balance} ₽`);
+    await replyWithCardQr(ctx, '✅ Подарочная карта создана', card);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Ошибка';
     await ctx.reply(`❌ ${message}`);
