@@ -362,6 +362,17 @@ test('startTransfer creates a token only for the current owner', async () => {
   assert.equal(result.expiresAt.toISOString(), '2026-06-25T10:15:00.000Z');
 });
 
+test('startTransfer rejects a card owned by another customer', async () => {
+  const { useCases, cards, owners } = makeUseCases();
+  cards.set('card-1', makeCard());
+  owners.set('card-1', { card_id: 'card-1', customer_id: 'customer-2', linked_at: now });
+
+  await assert.rejects(
+    () => useCases.startTransfer('customer-1', 'CARD-1'),
+    /Card is not owned by this customer/
+  );
+});
+
 test('acceptTransfer moves ownership and marks the token used', async () => {
   const { useCases, cards, owners, tokens, transfers } = makeUseCases();
   cards.set('card-1', makeCard());
@@ -388,4 +399,24 @@ test('acceptTransfer moves ownership and marks the token used', async () => {
     initiatedByCustomerId: 'customer-1',
     type: 'OWNER_TRANSFER',
   });
+});
+
+test('acceptTransfer rejects when the card owner changed after token creation', async () => {
+  const { useCases, cards, owners, tokens } = makeUseCases();
+  cards.set('card-1', makeCard());
+  owners.set('card-1', { card_id: 'card-1', customer_id: 'customer-3', linked_at: now });
+  tokens.set('transfer-token', {
+    id: 'token-1',
+    token: 'transfer-token',
+    card_id: 'card-1',
+    from_customer_id: 'customer-1',
+    expires_at: new Date('2026-06-25T10:15:00.000Z'),
+    used_at: null,
+    created_at: now,
+  });
+
+  await assert.rejects(
+    () => useCases.acceptTransfer('customer-2', 'transfer-token'),
+    /Card is not owned by this customer/
+  );
 });
