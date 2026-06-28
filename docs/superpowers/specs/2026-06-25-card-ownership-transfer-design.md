@@ -92,9 +92,9 @@ Proposed fields:
 - `id`: internal audit row identifier.
 - `card_id`: affected card.
 - `from_customer_id`: previous owner; null for initial link.
-- `to_customer_id`: new owner.
+- `to_customer_id`: new owner; null for unlink.
 - `initiated_by_customer_id`: customer who initiated the event.
-- `type`: `INITIAL_LINK` or `OWNER_TRANSFER`.
+- `type`: `INITIAL_LINK`, `OWNER_TRANSFER`, or `OWNER_UNLINK`.
 - `created_at`: event timestamp.
 
 This table is audit/history. The current owner is always read from `card_owners`.
@@ -246,6 +246,28 @@ Errors:
 - already used token;
 - card owner changed after token creation;
 - recipient is already the current owner.
+
+### Unlink Card
+
+Actor: current owner.
+
+Entry point:
+
+- `/unlink <code>`
+
+Flow:
+
+1. Adapter resolves current customer.
+2. Customer provides a public card code.
+3. System verifies the customer is the current owner in `card_owners`.
+4. System deletes the current `card_owners` row.
+5. System writes `card_owner_transfers` with `type = 'OWNER_UNLINK'` and `to_customer_id = null`.
+6. Bot confirms the unlink.
+
+Errors:
+
+- card code is unknown or inactive;
+- card is not owned by the current customer.
 
 ### Cancel Transfer
 

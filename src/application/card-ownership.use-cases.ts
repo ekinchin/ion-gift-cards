@@ -185,31 +185,6 @@ export class CardOwnershipUseCases {
     return this.#unlinkOwnedCard(customerId, card.code, customerId);
   }
 
-  async unlinkCardByCode(code: string, _operatorId: string): Promise<Card> {
-    return this.#transaction(async (trx) => {
-      const card = await this.#cardRepo.findByCode(code, trx);
-      if (!card) {
-        throw new CardNotFoundError();
-      }
-
-      const owner = await this.#ownershipRepo.findOwnerByCardIdForUpdate(card.id, trx);
-      if (!owner) {
-        throw new CardOwnershipRequiredError();
-      }
-
-      await this.#ownershipRepo.unlinkCard(card.id, trx);
-      await this.#ownershipRepo.createTransferEvent({
-        cardId: card.id,
-        fromCustomerId: owner.customer_id,
-        toCustomerId: null,
-        initiatedByCustomerId: null,
-        type: 'OWNER_UNLINK',
-      }, trx);
-
-      return card;
-    });
-  }
-
   async getOwnedBalance(customerId: string, code?: string): Promise<{ card: Card; balance: number }> {
     const card = await this.#resolveOwnedCard(customerId, code);
     return { card, balance: Number(card.balance) };
