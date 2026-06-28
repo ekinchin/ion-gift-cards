@@ -75,13 +75,22 @@ write_files:
         curl --fail --silent --show-error --location https://storage.yandexcloud.net/yandexcloud-yc/install.sh | bash -s -- -a
       fi
 
-      iam_token="\$(curl --fail --silent --show-error \
+      metadata_token_response="\$(curl --fail --silent --show-error \
         --header 'Metadata-Flavor: Google' \
-        http://169.254.169.254/computeMetadata/v1/instance/service-accounts/default/token \
-        | sed -n 's/.*"access_token"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')"
+        http://169.254.169.254/computeMetadata/v1/instance/service-accounts/default/token)"
+
+      iam_token="\$(printf '%s' "\$metadata_token_response" \
+        | sed -n 's/.*"\(access_token\|accessToken\|iamToken\|token\)"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\2/p' \
+        | head -n 1)"
 
       if [[ -z "\$iam_token" ]]; then
         echo "Could not read IAM token from VM metadata service" >&2
+        printf 'Metadata token response keys: ' >&2
+        printf '%s' "\$metadata_token_response" \
+          | grep -o '"[^"]*"[[:space:]]*:' \
+          | sed 's/[":[:space:]]//g' \
+          | tr '\n' ' ' >&2 || true
+        echo >&2
         exit 1
       fi
 
