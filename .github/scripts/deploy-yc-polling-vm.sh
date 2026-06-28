@@ -76,6 +76,7 @@ image="__BOT_POLLING_IMAGE__"
 folder_id="__YC_FOLDER_ID__"
 lockbox_secret_id="__YC_LOCKBOX_SECRET_ID__"
 yc_bin="/root/yandex-cloud/bin/yc"
+ycr_helper="/root/yandex-cloud/bin/docker-credential-ycr"
 env_file="/etc/ion-gift-card-bot.env"
 
 if [[ ! -x "$yc_bin" ]]; then
@@ -134,7 +135,12 @@ umask 077
   echo "WEB_APP_URL=$(read_secret WEB_APP_URL)"
 } > "$env_file"
 
-echo "$iam_token" | docker login --username iam --password-stdin cr.yandex
+if [[ -x "$ycr_helper" ]]; then
+  "$ycr_helper" configure-docker
+else
+  echo "$iam_token" | docker login --username iam --password-stdin cr.yandex
+fi
+
 docker pull "$image"
 docker rm -f ion-gift-card-bot >/dev/null 2>&1 || true
 docker run --detach \
