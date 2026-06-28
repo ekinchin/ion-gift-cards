@@ -16,6 +16,16 @@ Database constraints protect critical invariants for balances, transaction amoun
 
 Money is still represented as JavaScript `number` in application code. The current architecture protects basic amount invariants through Zod, use-case checks, and database constraints; a dedicated money value object remains a possible future improvement.
 
+## Accepted Design: Card Ledger and Domain Events
+
+`transactions` is the card ledger. Its purpose is to explain and verify `cards.balance`, support balance recalculation, and make duplicated debit or credit operations discoverable. It should stay focused on card balance mutations and should not become a general business activity log.
+
+Future cross-domain product mechanics, such as promotions, loyalty bonuses, news publication, and raffles, should use a separate `domain_events` stream. Domain events record business facts and are indexed by their primary aggregate through `aggregate_type` and `aggregate_id`. Events may also duplicate useful lookup references, such as `customer_id`, `card_id`, `operator_id`, `promotion_id`, or `raffle_id`, so support and reporting can query activity by related entity.
+
+Reactive features should not be called directly from card use cases. When a feature needs to react to a business fact, the system should add an outbox or delivery table that records which handlers have processed each event and whether retries are needed. The first implementation can write domain events synchronously in the same database transaction as the originating use case; asynchronous retries can be added when the first real reactive module needs them.
+
+The detailed accepted design is documented in `docs/domain-events.md` and `docs/domain-events-ru.md`.
+
 ## Accepted Design: Customer Card Ownership
 
 Gift cards keep the current split between the internal `cards.id` and public `cards.code`. The public code remains the QR/manual-entry identifier for operator workflows. Bot-generated QR images encode exactly the plain text `cards.code`; they are generated on demand with `qrcode` and are not stored in the database.
