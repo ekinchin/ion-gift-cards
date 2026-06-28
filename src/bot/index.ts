@@ -13,16 +13,7 @@ export function createBot(telegramConfig: TelegramConfig) {
   return bot;
 }
 
-export async function configureBotApi(bot: Bot<MyContext>, telegramConfig: TelegramConfig) {
+export async function configureBotApi(bot: Bot<MyContext>) {
   await bot.api.setMyCommands(botCommands);
-
-  if (telegramConfig.webAppUrl) {
-    await bot.api.setChatMenuButton({
-      menu_button: {
-        type: 'web_app',
-        text: 'Сканировать QR',
-        web_app: { url: telegramConfig.webAppUrl },
-      },
-    });
-  }
+  await bot.api.setChatMenuButton({ menu_button: { type: 'default' } });
 }

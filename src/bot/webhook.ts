@@ -32,7 +32,7 @@ export async function startWebhookServer() {
   const bot = createBot(telegramConfig);
   const app = createWebhookApp(bot, telegramConfig.webhookSecret);
 
-  await configureBotApi(bot, telegramConfig);
+  await configureBotApi(bot);
 
   const apiConfig = configurationService.getApiConfig();
   await app.listen({ port: apiConfig.port, host: apiConfig.host });

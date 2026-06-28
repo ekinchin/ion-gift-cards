@@ -13,7 +13,7 @@
 - деплоит API в Yandex Serverless Containers;
 - создаёт или обновляет Compute Cloud VM с Container Solution для Telegram long polling bot;
 - удаляет Telegram webhook, чтобы polling мог получать updates;
-- выставляет и проверяет Telegram menu button со ссылкой на QR Mini App из Lockbox.
+- сбрасывает постоянную Telegram menu button в default-состояние, чтобы QR-сканирование появлялось только в контекстных inline-кнопках.
 
 Важно: миграции сейчас выполняются из GitHub Actions runner. Поэтому для первого запуска PostgreSQL должен быть доступен из GitHub Actions. Самый простой вариант - Managed PostgreSQL с public access. Более строгий production-вариант - перенести миграции внутрь Yandex Cloud/VPC и добавить `revision-network-id` для Serverless Containers.
 
@@ -437,7 +437,7 @@ GitHub Actions должен выполнить:
 9. Deploy API Serverless Container.
 10. Create/update Compute VM container для polling bot.
 11. Удаление Telegram webhook через `deleteWebhook`.
-12. Установку и проверку Telegram menu button со ссылкой на `WEB_APP_URL`.
+12. Сброс постоянной Telegram menu button в default-состояние.
 
 ## 15. Проверить после релиза
 
@@ -460,7 +460,7 @@ curl "https://api.telegram.org/bot<token>/getWebhookInfo"
 /start
 ```
 
-Проверьте кнопку сканирования QR в Telegram: она должна открывать URL из `WEB_APP_URL`, а не временный tunnel или Serverless Container `/qr`.
+Проверьте QR-сценарий в Telegram: постоянной кнопки `Сканировать QR` в чате быть не должно, а inline-кнопка сканирования должна появляться только после команд или меню-действий, где нужен QR.
 
 ## 16. Что улучшить после первого запуска
 
