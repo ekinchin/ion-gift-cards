@@ -194,6 +194,10 @@ CI service account:
 
 ```bash
 yc resource-manager folder add-access-binding "$YC_FOLDER_ID" \
+  --role editor \
+  --service-account-id "$YC_CI_SA_ID"
+
+yc resource-manager folder add-access-binding "$YC_FOLDER_ID" \
   --role container-registry.images.pusher \
   --service-account-id "$YC_CI_SA_ID"
 
@@ -202,7 +206,7 @@ yc resource-manager folder add-access-binding "$YC_FOLDER_ID" \
   --service-account-id "$YC_CI_SA_ID"
 
 yc resource-manager folder add-access-binding "$YC_FOLDER_ID" \
-  --role compute.editor \
+  --role compute.admin \
   --service-account-id "$YC_CI_SA_ID"
 
 yc resource-manager folder add-access-binding "$YC_FOLDER_ID" \
@@ -215,6 +219,10 @@ yc resource-manager folder add-access-binding "$YC_FOLDER_ID" \
 
 yc resource-manager folder add-access-binding "$YC_FOLDER_ID" \
   --role vpc.user \
+  --service-account-id "$YC_CI_SA_ID"
+
+yc resource-manager folder add-access-binding "$YC_FOLDER_ID" \
+  --role vpc.externalAddresses.user \
   --service-account-id "$YC_CI_SA_ID"
 
 yc resource-manager folder add-access-binding "$YC_FOLDER_ID" \
