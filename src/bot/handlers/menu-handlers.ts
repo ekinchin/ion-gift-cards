@@ -8,7 +8,7 @@ import {
 } from '../pending-menu-action.ts';
 import { replyScanPrompt } from './keyboards.ts';
 import { getOperator } from './operators.ts';
-import { replyMyCards } from './card-replies.ts';
+import { createPersonalCardForCurrentCustomer, replyMyCards } from './card-replies.ts';
 
 export async function handleMenuButton(
   ctx: MyContext,
@@ -49,6 +49,11 @@ export async function handleMenuButton(
     return true;
   }
 
+  if (action === 'createPersonal') {
+    await createPersonalCardForCurrentCustomer(ctx);
+    return true;
+  }
+
   if (action === 'link') {
     await replyScanPrompt(
       ctx,
@@ -70,7 +75,7 @@ export async function handleMenuButton(
     return true;
   }
 
-  await ctx.reply('Введите начальную сумму: /create <сумма>');
+  await ctx.reply('Введите начальную сумму: /create_gift_card <сумма>');
   return true;
 }
 

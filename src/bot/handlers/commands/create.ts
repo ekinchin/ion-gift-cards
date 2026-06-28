@@ -4,7 +4,7 @@ import { parseCreateCardAmount } from '../../create-card-command.ts';
 import type { MyContext } from '../../context.ts';
 import { getOperator } from '../operators.ts';
 
-export async function createCardCommandHandler(ctx: CommandContext<MyContext>) {
+export async function createGiftCardCommandHandler(ctx: CommandContext<MyContext>) {
   ctx.session.action = undefined;
   const operator = await getOperator(ctx.from?.id || 0);
   if (!operator) {
@@ -13,7 +13,7 @@ export async function createCardCommandHandler(ctx: CommandContext<MyContext>) {
   }
   const amount = parseCreateCardAmount(ctx.match);
   if (!amount.ok && amount.reason === 'missing') {
-    await ctx.reply('❌ Использование: /create <начальная_сумма>');
+    await ctx.reply('❌ Использование: /create_gift_card <начальная_сумма>');
     return;
   }
 
@@ -24,7 +24,7 @@ export async function createCardCommandHandler(ctx: CommandContext<MyContext>) {
 
   try {
     const card = await cardService.createCard(amount.amount, operator.id);
-    await ctx.reply(`✅ Карта создана!\n💳 Код: ${card.code}\n💰 Баланс: ${card.balance} ₽`);
+    await ctx.reply(`✅ Подарочная карта создана!\n💳 Код: ${card.code}\n💰 Баланс: ${card.balance} ₽`);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Ошибка';
     await ctx.reply(`❌ ${message}`);

@@ -2,11 +2,14 @@ import { randomUUID } from 'node:crypto';
 import type { Knex } from 'knex';
 import { db } from '../db/knex.ts';
 import type { Card, IdentityProvider, Transaction } from '../types/index.ts';
+import { generateCardCode } from './card-code.generator.ts';
 import {
   CardAlreadyLinkedError,
   CardAlreadyLinkedToCustomerError,
   CardNotFoundError,
   CardOwnershipRequiredError,
+  CustomerAlreadyHasCardError,
+  DuplicateCardError,
   MultipleOwnedCardsError,
   NoOwnedCardsError,
   TransferToSameCustomerError,
@@ -18,6 +21,7 @@ import {
 interface CardReader {
   findByCode(code: string, trx?: Knex.Transaction): Promise<Card | null>;
   findById(id: string, trx?: Knex.Transaction): Promise<Card | null>;
+  create(code: string, initialAmount: number, trx?: Knex.Transaction): Promise<Card>;
 }
 
 interface TransactionReader {
@@ -74,6 +78,7 @@ interface OwnershipStore {
 }
 
 type TransactionRunner = <T>(callback: (trx: Knex.Transaction) => Promise<T>) => Promise<T>;
+const MAX_CARD_CODE_GENERATION_ATTEMPTS = 5;
 
 export interface ProviderIdentityInput {
   provider: IdentityProvider;
@@ -90,6 +95,7 @@ export class CardOwnershipUseCases {
   #transaction: TransactionRunner;
   #now: () => Date;
   #tokenFactory: () => string;
+  #cardCodeFactory: () => string;
 
   constructor(
     cardRepo: CardReader,
@@ -98,7 +104,8 @@ export class CardOwnershipUseCases {
     ownershipRepo: OwnershipStore,
     transaction: TransactionRunner = (callback) => db.transaction(callback),
     now: () => Date = () => new Date(),
-    tokenFactory: () => string = () => randomUUID()
+    tokenFactory: () => string = () => randomUUID(),
+    cardCodeFactory: () => string = generateCardCode
   ) {
     this.#cardRepo = cardRepo;
     this.#txRepo = txRepo;
@@ -107,6 +114,7 @@ export class CardOwnershipUseCases {
     this.#transaction = transaction;
     this.#now = now;
     this.#tokenFactory = tokenFactory;
+    this.#cardCodeFactory = cardCodeFactory;
   }
 
   async resolveCustomer(input: ProviderIdentityInput) {
@@ -128,6 +136,7 @@ export class CardOwnershipUseCases {
         throw new CardAlreadyLinkedError();
       }
 
+      await this.#assertCustomerHasNoCard(customerId, trx);
       await this.#ownershipRepo.linkCard(card.id, customerId, trx);
       await this.#ownershipRepo.createTransferEvent({
         cardId: card.id,
@@ -143,6 +152,28 @@ export class CardOwnershipUseCases {
 
   async listCards(customerId: string): Promise<Card[]> {
     return this.#ownershipRepo.findCardsByCustomerId(customerId);
+  }
+
+  async createPersonalCard(customerId: string): Promise<{ card: Card; created: boolean }> {
+    return this.#transaction(async (trx) => {
+      const existingCards = await this.#ownershipRepo.findCardsByCustomerId(customerId, trx);
+      if (existingCards.length > 0) {
+        return { card: existingCards[0]!, created: false };
+      }
+
+      const code = await this.#generateUniqueCode(trx);
+      const card = await this.#cardRepo.create(code, 0, trx);
+      await this.#ownershipRepo.linkCard(card.id, customerId, trx);
+      await this.#ownershipRepo.createTransferEvent({
+        cardId: card.id,
+        fromCustomerId: null,
+        toCustomerId: customerId,
+        initiatedByCustomerId: customerId,
+        type: 'INITIAL_LINK',
+      }, trx);
+
+      return { card, created: true };
+    });
   }
 
   async unlinkCard(customerId: string, code: string): Promise<Card> {
@@ -230,6 +261,8 @@ export class CardOwnershipUseCases {
         throw new TransferToSameCustomerError();
       }
 
+      await this.#assertCustomerHasNoCard(customerId, trx);
+
       const owner = await this.#ownershipRepo.findOwnerByCardIdForUpdate(transferToken.card_id, trx);
       if (owner?.customer_id !== transferToken.from_customer_id) {
         throw new CardOwnershipRequiredError();
@@ -300,5 +333,24 @@ export class CardOwnershipUseCases {
       throw new MultipleOwnedCardsError();
     }
     return cards[0]!;
+  }
+
+  async #assertCustomerHasNoCard(customerId: string, trx: Knex.Transaction) {
+    const cards = await this.#ownershipRepo.findCardsByCustomerId(customerId, trx);
+    if (cards.length > 0) {
+      throw new CustomerAlreadyHasCardError();
+    }
+  }
+
+  async #generateUniqueCode(trx: Knex.Transaction): Promise<string> {
+    for (let attempt = 0; attempt < MAX_CARD_CODE_GENERATION_ATTEMPTS; attempt += 1) {
+      const code = this.#cardCodeFactory();
+      const existing = await this.#cardRepo.findByCode(code, trx);
+      if (!existing) {
+        return code;
+      }
+    }
+
+    throw new DuplicateCardError();
   }
 }

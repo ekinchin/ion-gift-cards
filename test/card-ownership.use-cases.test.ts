@@ -53,6 +53,16 @@ function makeUseCases() {
     async findById(id: string) {
       return cards.get(id) ?? null;
     },
+    async create(code: string, initialAmount: number) {
+      const card = makeCard({
+        id: `card-${cards.size + 1}`,
+        code,
+        balance: initialAmount,
+        initial_amount: initialAmount,
+      });
+      cards.set(card.id, card);
+      return card;
+    },
   };
   const txRepo = {
     async findByCardId(cardId: string) {
@@ -127,11 +137,82 @@ function makeUseCases() {
     ownershipRepo,
     async (callback) => callback({}),
     () => now,
-    () => 'transfer-token'
+    () => 'transfer-token',
+    () => 'ION-PERSONAL0001'
   );
 
   return { useCases, cards, owners, tokens, transfers, transactions };
 }
+
+test('createPersonalCard creates a zero-balance card and links it to the customer', async () => {
+  const { useCases, cards, owners, transfers } = makeUseCases();
+
+  const result = await useCases.createPersonalCard('customer-1');
+  const { card } = result;
+
+  assert.equal(result.created, true);
+  assert.equal(card.code, 'ION-PERSONAL0001');
+  assert.equal(card.balance, 0);
+  assert.equal(card.initial_amount, 0);
+  assert.equal(cards.size, 1);
+  assert.equal(owners.get(card.id)?.customer_id, 'customer-1');
+  assert.deepEqual(transfers[0], {
+    cardId: card.id,
+    fromCustomerId: null,
+    toCustomerId: 'customer-1',
+    initiatedByCustomerId: 'customer-1',
+    type: 'INITIAL_LINK',
+  });
+});
+
+test('createPersonalCard returns the current card when the customer already has one', async () => {
+  const { useCases, cards, owners, transfers } = makeUseCases();
+  const existingCard = makeCard();
+  cards.set(existingCard.id, existingCard);
+  owners.set(existingCard.id, { card_id: existingCard.id, customer_id: 'customer-1', linked_at: now });
+
+  const result = await useCases.createPersonalCard('customer-1');
+  const { card } = result;
+
+  assert.equal(result.created, false);
+  assert.equal(card.id, existingCard.id);
+  assert.equal(cards.size, 1);
+  assert.equal(transfers.length, 0);
+});
+
+test('linkCard rejects when the customer already owns another card', async () => {
+  const { useCases, cards, owners } = makeUseCases();
+  cards.set('card-1', makeCard({ id: 'card-1', code: 'CARD-1' }));
+  cards.set('card-2', makeCard({ id: 'card-2', code: 'CARD-2' }));
+  owners.set('card-1', { card_id: 'card-1', customer_id: 'customer-1', linked_at: now });
+
+  await assert.rejects(
+    () => useCases.linkCard('customer-1', 'CARD-2'),
+    /Customer already has a linked card/
+  );
+});
+
+test('acceptTransfer rejects when the recipient already owns a card', async () => {
+  const { useCases, cards, owners, tokens } = makeUseCases();
+  cards.set('card-1', makeCard({ id: 'card-1', code: 'CARD-1' }));
+  cards.set('card-2', makeCard({ id: 'card-2', code: 'CARD-2' }));
+  owners.set('card-1', { card_id: 'card-1', customer_id: 'customer-1', linked_at: now });
+  owners.set('card-2', { card_id: 'card-2', customer_id: 'customer-2', linked_at: now });
+  tokens.set('transfer-token', {
+    id: 'token-1',
+    token: 'transfer-token',
+    card_id: 'card-1',
+    from_customer_id: 'customer-1',
+    expires_at: new Date('2026-06-25T10:15:00.000Z'),
+    used_at: null,
+    created_at: now,
+  });
+
+  await assert.rejects(
+    () => useCases.acceptTransfer('customer-2', 'transfer-token'),
+    /Customer already has a linked card/
+  );
+});
 
 test('linkCard links an unowned card to the current customer', async () => {
   const { useCases, cards, owners, transfers } = makeUseCases();

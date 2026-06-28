@@ -43,6 +43,8 @@ export function mainMenuKeyboard(isOperator = false) {
     .text(menuButtonLabels.history)
     .row()
     .text(menuButtonLabels.mycards)
+    .text(menuButtonLabels.createPersonal)
+    .row()
     .text(menuButtonLabels.link);
 
   if (!isOperator) {

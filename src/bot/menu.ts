@@ -1,11 +1,12 @@
 export const menuButtonLabels = {
   balance: '💳 Баланс',
   history: '📋 История',
-  mycards: '🎟️ Мои карты',
+  mycards: '🎟️ Моя карта',
+  createPersonal: '➕ Создать мою карту',
   link: '🔗 Привязать карту',
   debit: '🔴 Списать',
   credit: '🟢 Пополнить',
-  create: '➕ Создать карту',
+  create: '➕ Создать подарочную карту',
 } as const;
 
 export type MenuAction = keyof typeof menuButtonLabels;

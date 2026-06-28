@@ -11,6 +11,7 @@ test('parseMenuButton maps reply keyboard labels to menu actions', () => {
   assert.equal(parseMenuButton(menuButtonLabels.debit), 'debit');
   assert.equal(parseMenuButton(menuButtonLabels.credit), 'credit');
   assert.equal(parseMenuButton(menuButtonLabels.create), 'create');
+  assert.equal(parseMenuButton(menuButtonLabels.createPersonal), 'createPersonal');
 });
 
 test('parseMenuButton ignores regular card codes', () => {

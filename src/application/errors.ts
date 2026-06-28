@@ -71,6 +71,12 @@ export class MultipleOwnedCardsError extends AppError {
   }
 }
 
+export class CustomerAlreadyHasCardError extends AppError {
+  constructor() {
+    super('Customer already has a linked card', 'CUSTOMER_ALREADY_HAS_CARD', 409);
+  }
+}
+
 export class TransferTokenInvalidError extends AppError {
   constructor() {
     super('Transfer token is invalid', 'TRANSFER_TOKEN_INVALID', 404);

@@ -34,12 +34,26 @@ export async function replyMyCards(ctx: MyContext) {
 
   const cards = await cardOwnershipService.listCards(customer.id);
   if (cards.length === 0) {
-    await ctx.reply('У вас пока нет привязанных карт. Привяжите карту командой /link <код> или через QR.');
+    await ctx.reply('У вас пока нет карты. Создайте её командой /create_my_card или привяжите существующую командой /link <код>.');
     return;
   }
 
-  const lines = cards.map((card) => `💳 ${card.code}\n💰 Баланс: ${card.balance} ₽`);
-  await ctx.reply(`🎟️ Ваши карты:\n\n${lines.join('\n\n')}`);
+  const card = cards[0]!;
+  await ctx.reply(`🎟️ Ваша карта:\n💳 ${card.code}\n💰 Баланс: ${card.balance} ₽`);
+}
+
+export async function createPersonalCardForCurrentCustomer(ctx: MyContext) {
+  const customer = await resolveCurrentCustomer(ctx);
+  if (!customer) return;
+
+  try {
+    const { card, created } = await cardOwnershipService.createPersonalCard(customer.id);
+    const title = created ? '✅ Ваша карта создана' : 'ℹ️ У вас уже есть карта';
+    await ctx.reply(`${title}\n💳 Карта: ${card.code}\n💰 Баланс: ${card.balance} ₽`);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Ошибка';
+    await ctx.reply(`❌ ${message}`);
+  }
 }
 
 export async function replyOwnedBalance(ctx: MyContext, code?: string) {
