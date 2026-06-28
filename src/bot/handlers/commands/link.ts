@@ -1,7 +1,7 @@
 import type { CommandContext } from 'grammy';
 import type { TelegramConfig } from '../../../configuration/configuration-service.ts';
 import type { MyContext } from '../../context.ts';
-import { linkCardToCurrentCustomer } from '../card-replies.ts';
+import { linkCardToCurrentCustomer, replyExistingLinkedCard } from '../card-replies.ts';
 import { replyScanPrompt } from '../keyboards.ts';
 
 export function createLinkCommandHandler(telegramConfig: TelegramConfig) {
@@ -9,6 +9,9 @@ export function createLinkCommandHandler(telegramConfig: TelegramConfig) {
     ctx.session.action = undefined;
     const code = ctx.match?.trim();
     if (!code) {
+      if (await replyExistingLinkedCard(ctx)) {
+        return;
+      }
       await replyScanPrompt(
         ctx,
         telegramConfig,

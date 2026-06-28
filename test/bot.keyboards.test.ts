@@ -18,6 +18,7 @@ test('mainMenuKeyboard hides operator actions for customers', () => {
     menuButtonLabels.mycards,
     menuButtonLabels.createPersonal,
     menuButtonLabels.link,
+    menuButtonLabels.unlink,
   ]);
 });
 
@@ -30,6 +31,7 @@ test('mainMenuKeyboard shows operator actions for operators', () => {
     menuButtonLabels.mycards,
     menuButtonLabels.createPersonal,
     menuButtonLabels.link,
+    menuButtonLabels.unlink,
     menuButtonLabels.debit,
     menuButtonLabels.credit,
     menuButtonLabels.create,

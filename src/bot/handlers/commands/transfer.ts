@@ -8,10 +8,15 @@ export async function transferCommandHandler(ctx: CommandContext<MyContext>) {
   const customer = await resolveCurrentCustomer(ctx);
   if (!customer) return;
 
-  const code = ctx.match?.trim();
+  let code = ctx.match?.trim();
   if (!code) {
-    await ctx.reply('❌ Использование: /transfer <код>');
-    return;
+    const cards = await cardOwnershipService.listCards(customer.id);
+    const card = cards[0];
+    if (!card) {
+      await ctx.reply('❌ У вас пока нет привязанной карты');
+      return;
+    }
+    code = card.code;
   }
 
   try {

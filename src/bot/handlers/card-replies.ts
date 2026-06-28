@@ -1,6 +1,7 @@
 import { cardOwnershipService, cardService } from '../../services/index.ts';
 import { replyWithCardQr } from '../card-qr.ts';
 import type { MyContext } from '../context.ts';
+import { getOperator } from './operators.ts';
 
 export async function replyBalance(ctx: MyContext, code: string) {
   try {
@@ -41,6 +42,20 @@ export async function replyMyCards(ctx: MyContext) {
 
   const card = cards[0]!;
   await replyWithCardQr(ctx, '🎟️ Ваша карта', card);
+}
+
+export async function replyExistingLinkedCard(ctx: MyContext): Promise<boolean> {
+  const customer = await resolveCurrentCustomer(ctx);
+  if (!customer) return true;
+
+  const cards = await cardOwnershipService.listCards(customer.id);
+  const card = cards[0];
+  if (!card) {
+    return false;
+  }
+
+  await replyWithCardQr(ctx, 'ℹ️ У вас уже есть карта', card);
+  return true;
 }
 
 export async function createPersonalCardForCurrentCustomer(ctx: MyContext) {
@@ -115,7 +130,20 @@ export async function unlinkCardFromCurrentCustomer(ctx: MyContext, code: string
 
   try {
     const card = await cardOwnershipService.unlinkCard(customer.id, code);
-    await ctx.reply(`✅ Карта отвязана\n💳 Карта: ${card.code}`);
+    await replyWithCardQr(ctx, '✅ Карта отвязана', card);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Ошибка';
+    await ctx.reply(`❌ ${message}`);
+  }
+}
+
+export async function unlinkCurrentCardFromCurrentCustomer(ctx: MyContext) {
+  const customer = await resolveCurrentCustomer(ctx);
+  if (!customer) return;
+
+  try {
+    const card = await cardOwnershipService.unlinkCurrentCard(customer.id);
+    await replyWithCardQr(ctx, '✅ Карта отвязана', card);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Ошибка';
     await ctx.reply(`❌ ${message}`);
@@ -124,17 +152,24 @@ export async function unlinkCardFromCurrentCustomer(ctx: MyContext, code: string
 
 export async function replyHistory(ctx: MyContext, code: string) {
   try {
-    const history = await cardService.getHistory(code);
-    if (history.length === 0) {
-      await ctx.reply(`💳 Карта: ${code}\n📋 История пуста`);
+    const operator = await getOperator(ctx.from?.id || 0);
+    const customer = operator ? null : await resolveCurrentCustomer(ctx);
+    if (!operator && !customer) return;
+
+    const { card, transactions } = await cardOwnershipService.getHistoryByCode(code, {
+      customerId: customer?.id,
+      operatorId: operator?.id,
+    });
+    if (transactions.length === 0) {
+      await ctx.reply(`💳 Карта: ${card.code}\n📋 История пуста`);
       return;
     }
-    const lines = history.slice(0, 10).map((tx) => {
+    const lines = transactions.slice(0, 10).map((tx) => {
       const sign = tx.type === 'DEBIT' ? '-' : '+';
       const emoji = tx.type === 'DEBIT' ? '🔴' : '🟢';
       return `${emoji} ${sign}${tx.amount} ₽ → ${tx.balance_after} ₽`;
     });
-    await ctx.reply(`💳 Карта: ${code}\n📋 Последние операции:\n\n${lines.join('\n')}`);
+    await ctx.reply(`💳 Карта: ${card.code}\n📋 Последние операции:\n\n${lines.join('\n')}`);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Ошибка';
     await ctx.reply(`❌ ${message}`);

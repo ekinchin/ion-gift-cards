@@ -59,6 +59,12 @@ export class CardOwnershipRequiredError extends AppError {
   }
 }
 
+export class CardHistoryAccessDeniedError extends AppError {
+  constructor() {
+    super('Card history is available only to the owner or an operator', 'CARD_HISTORY_ACCESS_DENIED', 403);
+  }
+}
+
 export class NoOwnedCardsError extends AppError {
   constructor() {
     super('Customer has no linked cards', 'NO_OWNED_CARDS', 404);
