@@ -285,20 +285,17 @@ jobs:
           curl --fail --show-error --silent "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/deleteWebhook" \
             --data-urlencode "drop_pending_updates=false"
 
-      - name: Verify Telegram QR Mini App URL
+      - name: Reset Telegram persistent menu button
         run: |
           set -euo pipefail
 
-          menu_button="$(jq -nc --arg url "$WEB_APP_URL" '{type:"web_app",text:"Сканировать QR",web_app:{url:$url}}')"
           curl --fail --show-error --silent "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/setChatMenuButton" \
-            --data-urlencode "menu_button=${menu_button}" >/dev/null
+            --data-urlencode 'menu_button={"type":"default"}' >/dev/null
 
-          actual_url="$(curl --fail --show-error --silent "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getChatMenuButton" \
-            | jq -r '.result.web_app.url // empty')"
+          actual_type="$(curl --fail --show-error --silent "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getChatMenuButton" \
+            | jq -r '.result.type // empty')"
 
-          if [[ "$actual_url" != "$WEB_APP_URL" ]]; then
-            printf 'Telegram menu button points to unexpected URL.\n' >&2
-            printf 'Expected: %s\n' "$WEB_APP_URL" >&2
-            printf 'Actual:   %s\n' "$actual_url" >&2
+          if [[ "$actual_type" == "web_app" ]]; then
+            printf 'Telegram persistent menu button is still configured as WebApp.\n' >&2
             exit 1
           fi

@@ -8,7 +8,7 @@ if (telegramConfig.mode !== 'polling') {
 
 const bot = createBot(telegramConfig);
 
-await configureBotApi(bot, telegramConfig);
+await configureBotApi(bot);
 bot.start();
 
 console.log('Bot long polling started');

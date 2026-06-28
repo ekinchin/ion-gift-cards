@@ -117,15 +117,7 @@ export function createBot() {
 
 export async function configureBotApi(bot: Bot<MyContext>) {
   await bot.api.setMyCommands(botCommands);
-  if (webAppUrl) {
-    await bot.api.setChatMenuButton({
-      menu_button: {
-        type: 'web_app',
-        text: 'Сканировать QR',
-        web_app: { url: webAppUrl },
-      },
-    });
-  }
+  await bot.api.setChatMenuButton({ menu_button: { type: 'default' } });
 }
 ```
 

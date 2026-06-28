@@ -19,8 +19,8 @@ The release workflow:
 - runs migrations from the GitHub Actions runner using the migrations image;
 - deploys the API Serverless Container revision;
 - creates or updates the Compute Cloud VM that runs the long-polling bot container;
-- deletes the Telegram webhook so `getUpdates`/long polling can receive updates.
-- sets and verifies the Telegram menu button URL against `WEB_APP_URL`.
+- deletes the Telegram webhook so `getUpdates`/long polling can receive updates;
+- resets the persistent Telegram menu button to the default state so QR scanning appears only in contextual inline buttons.
 
 Important network constraint: migrations currently run from a GitHub-hosted runner. For the first deployment, Managed PostgreSQL must be reachable from GitHub Actions, for example through a public endpoint. A stricter production setup should run migrations inside Yandex Cloud/VPC and add `revision-network-id` to the Serverless Container deployments.
 
@@ -261,9 +261,9 @@ GitHub Actions then:
 10. Deploys the API Serverless Container revision with Lockbox-backed secrets and `YC_NETWORK_ID`.
 11. Recreates the Compute VM for the long-polling bot. The bot is stateless; durable state stays in PostgreSQL.
 12. Calls Telegram `deleteWebhook` with `drop_pending_updates=false`.
-13. Sets and verifies the Telegram menu button URL against `WEB_APP_URL`.
+13. Resets the persistent Telegram menu button to the default state.
 
-If checks, QR upload, image push, migrations, deployment, VM update, Telegram webhook deletion, or menu button verification fail, the workflow stops before later release steps. Rollback is done by redeploying a previous image tag as a new Serverless Container revision for the API and updating the bot VM container to a previous image tag; database rollback is not automatic.
+If checks, QR upload, image push, migrations, deployment, VM update, Telegram webhook deletion, or persistent menu reset fail, the workflow stops before later release steps. Rollback is done by redeploying a previous image tag as a new Serverless Container revision for the API and updating the bot VM container to a previous image tag; database rollback is not automatic.
 
 ## Post-Deploy Checks
 

@@ -1,9 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { configureBotApi } from '../src/bot/index.ts';
-import type { TelegramConfig } from '../src/configuration/configuration-service.ts';
 
-test('configureBotApi sets web app menu button from injected Telegram config', async () => {
+test('configureBotApi clears persistent web app menu button', async () => {
   const calls: unknown[] = [];
   const bot = {
     api: {
@@ -16,28 +15,18 @@ test('configureBotApi sets web app menu button from injected Telegram config', a
     },
   };
 
-  const telegramConfig: TelegramConfig = {
-    mode: 'polling',
-    botToken: 'test-token',
-    webAppUrl: 'https://example.test/qr',
-  };
-
-  await configureBotApi(bot as never, telegramConfig);
+  await configureBotApi(bot as never);
 
   assert.equal(calls.length, 2);
   assert.deepEqual(calls[1], {
     method: 'setChatMenuButton',
     payload: {
-      menu_button: {
-        type: 'web_app',
-        text: 'Сканировать QR',
-        web_app: { url: 'https://example.test/qr' },
-      },
+      menu_button: { type: 'default' },
     },
   });
 });
 
-test('configureBotApi skips web app menu button when URL is absent', async () => {
+test('configureBotApi clears persistent web app menu button when URL is absent', async () => {
   const calls: unknown[] = [];
   const bot = {
     api: {
@@ -50,10 +39,13 @@ test('configureBotApi skips web app menu button when URL is absent', async () =>
     },
   };
 
-  await configureBotApi(bot as never, {
-    mode: 'polling',
-    botToken: 'test-token',
-  });
+  await configureBotApi(bot as never);
 
-  assert.deepEqual(calls.map((call) => (call as { method: string }).method), ['setMyCommands']);
+  assert.equal(calls.length, 2);
+  assert.deepEqual(calls[1], {
+    method: 'setChatMenuButton',
+    payload: {
+      menu_button: { type: 'default' },
+    },
+  });
 });
