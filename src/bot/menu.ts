@@ -4,6 +4,7 @@ export const menuButtonLabels = {
   mycards: '🎟️ Моя карта',
   createPersonal: '➕ Создать мою карту',
   link: '🔗 Привязать карту',
+  unlink: '⛓️ Отвязать карту',
   debit: '🔴 Списать',
   credit: '🟢 Пополнить',
   create: '➕ Создать подарочную карту',

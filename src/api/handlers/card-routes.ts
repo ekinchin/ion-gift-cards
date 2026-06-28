@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
-import { cardService } from '../../services/index.ts';
+import { cardOwnershipService, cardService } from '../../services/index.ts';
+import { requireCustomer, requireOperator } from '../auth.ts';
 import {
   type CardCodeParams,
   cardCodeParamsSchema,
@@ -30,7 +31,14 @@ export function registerCardRoutes(app: FastifyInstance) {
 
     const { code } = params.data;
     try {
-      const history = await cardService.getHistory(code);
+      const [operator, customer] = await Promise.all([
+        requireOperator(request),
+        requireCustomer(request),
+      ]);
+      const { transactions: history } = await cardOwnershipService.getHistoryByCode(code, {
+        customerId: customer?.id,
+        operatorId: operator?.id,
+      });
       return { code, transactions: history };
     } catch (error) {
       return sendError(reply, error);

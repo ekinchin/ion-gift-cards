@@ -9,7 +9,14 @@ import {
 } from '../pending-menu-action.ts';
 import { replyScanPrompt } from './keyboards.ts';
 import { getOperator } from './operators.ts';
-import { createPersonalCardForCurrentCustomer, replyMyCards } from './card-replies.ts';
+import {
+  createPersonalCardForCurrentCustomer,
+  replyExistingLinkedCard,
+  replyMyCards,
+  replyOwnedBalance,
+  replyOwnedHistory,
+  unlinkCurrentCardFromCurrentCustomer,
+} from './card-replies.ts';
 
 export async function handleMenuButton(
   ctx: MyContext,
@@ -24,24 +31,12 @@ export async function handleMenuButton(
   ctx.session.action = getPendingActionForMenuAction(action);
 
   if (action === 'balance') {
-    await replyScanPrompt(
-      ctx,
-      telegramConfig,
-      'Отсканируйте QR-код карты для проверки баланса:',
-      { action: 'balance' },
-      'Укажите код вручную: /balance <код>'
-    );
+    await replyOwnedBalance(ctx);
     return true;
   }
 
   if (action === 'history') {
-    await replyScanPrompt(
-      ctx,
-      telegramConfig,
-      'Отсканируйте QR-код карты для просмотра истории:',
-      { action: 'history' },
-      'Укажите код вручную: /history <код>'
-    );
+    await replyOwnedHistory(ctx);
     return true;
   }
 
@@ -56,6 +51,9 @@ export async function handleMenuButton(
   }
 
   if (action === 'link') {
+    if (await replyExistingLinkedCard(ctx)) {
+      return true;
+    }
     await replyScanPrompt(
       ctx,
       telegramConfig,
@@ -63,6 +61,11 @@ export async function handleMenuButton(
       { action: 'link' },
       'Укажите код вручную: /link <код>'
     );
+    return true;
+  }
+
+  if (action === 'unlink') {
+    await unlinkCurrentCardFromCurrentCustomer(ctx);
     return true;
   }
 

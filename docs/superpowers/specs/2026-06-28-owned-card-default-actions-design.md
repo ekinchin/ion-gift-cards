@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted product design for the next implementation step.
+Implemented in `feature/owned-card-default-actions`.
 
 ## Context
 
@@ -104,3 +104,7 @@ Implementation should add or update tests for:
 - public history by code is denied when the card has an owner and the requester is neither owner nor operator;
 - history by code is allowed for the owner;
 - history by code is allowed for an operator.
+
+## Implementation Notes
+
+The implementation keeps public balance lookup unchanged, routes public-code history reads through `CardOwnershipUseCases.getHistoryByCode`, and makes the bot's personal menu actions prefer the current linked card. The unlink success response uses the same generated card QR helper as card creation and "my card", so an accidental unlink can be recovered with the returned QR or text code.

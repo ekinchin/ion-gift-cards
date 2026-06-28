@@ -45,7 +45,8 @@ export function mainMenuKeyboard(isOperator = false) {
     .text(menuButtonLabels.mycards)
     .text(menuButtonLabels.createPersonal)
     .row()
-    .text(menuButtonLabels.link);
+    .text(menuButtonLabels.link)
+    .text(menuButtonLabels.unlink);
 
   if (!isOperator) {
     return keyboard.resized();

@@ -6,6 +6,7 @@ import { generateCardCode } from './card-code.generator.ts';
 import {
   CardAlreadyLinkedError,
   CardAlreadyLinkedToCustomerError,
+  CardHistoryAccessDeniedError,
   CardNotFoundError,
   CardOwnershipRequiredError,
   CustomerAlreadyHasCardError,
@@ -192,6 +193,24 @@ export class CardOwnershipUseCases {
 
   async getOwnedHistory(customerId: string, code?: string): Promise<{ card: Card; transactions: Transaction[] }> {
     const card = await this.#resolveOwnedCard(customerId, code);
+    const transactions = await this.#txRepo.findByCardId(card.id);
+    return { card, transactions };
+  }
+
+  async getHistoryByCode(
+    code: string,
+    actor: { customerId?: string; operatorId?: string } = {}
+  ): Promise<{ card: Card; transactions: Transaction[] }> {
+    const card = await this.#cardRepo.findByCode(code);
+    if (!card) {
+      throw new CardNotFoundError();
+    }
+
+    const owner = await this.#ownershipRepo.findOwnerByCardId(card.id);
+    if (owner && owner.customer_id !== actor.customerId && !actor.operatorId) {
+      throw new CardHistoryAccessDeniedError();
+    }
+
     const transactions = await this.#txRepo.findByCardId(card.id);
     return { card, transactions };
   }
