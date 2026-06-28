@@ -9,9 +9,11 @@
 - читает production secrets из Lockbox;
 - собирает и публикует 3 Docker image в Yandex Container Registry;
 - запускает миграции из GitHub Actions runner через `docker run`;
+- публикует статический QR Mini App HTML в Yandex Object Storage;
 - деплоит API в Yandex Serverless Containers;
 - создаёт или обновляет Compute Cloud VM с Container Solution для Telegram long polling bot;
-- удаляет Telegram webhook, чтобы polling мог получать updates.
+- удаляет Telegram webhook, чтобы polling мог получать updates;
+- выставляет и проверяет Telegram menu button со ссылкой на QR Mini App из Lockbox.
 
 Важно: миграции сейчас выполняются из GitHub Actions runner. Поэтому для первого запуска PostgreSQL должен быть доступен из GitHub Actions. Самый простой вариант - Managed PostgreSQL с public access. Более строгий production-вариант - перенести миграции внутрь Yandex Cloud/VPC и добавить `revision-network-id` для Serverless Containers.
 
@@ -124,7 +126,28 @@ TELEGRAM_WEBHOOK_SECRET=<generated_secret>
 
 Оно должно быть одинаковым в Lockbox и при регистрации Telegram webhook. Старый ручной workflow берёт его из Lockbox и передаёт в `setWebhook`.
 
-## 6. Создать Lockbox secret
+## 6. Создать Object Storage bucket для QR Mini App
+
+QR Mini App должен открываться у пользователя Telegram напрямую из Object Storage. Это снижает зависимость сканера от доступности Serverless Container из сети пользователя.
+
+Создайте отдельный маленький bucket:
+
+```bash
+yc storage bucket create ion-gift-card-qr-mini-app-<suffix> \
+  --max-size 10485760 \
+  --public-read
+```
+
+Сохраните:
+
+```text
+YC_QR_MINI_APP_BUCKET=ion-gift-card-qr-mini-app-<suffix>
+WEB_APP_URL=https://storage.yandexcloud.net/ion-gift-card-qr-mini-app-<suffix>/qr.html
+```
+
+Файл `src/api/qr-mini-app.html` будет загружаться в этот bucket workflow `.github/workflows/release-polling-vm.yml`.
+
+## 7. Создать Lockbox secret
 
 Runtime containers и release workflow читают production secrets из Lockbox.
 
@@ -140,7 +163,7 @@ cat > lockbox-payload.json <<'JSON'
   {"key":"DB_PASSWORD","text_value":"<db_password>"},
   {"key":"TELEGRAM_BOT_TOKEN","text_value":"<bot_token>"},
   {"key":"TELEGRAM_WEBHOOK_SECRET","text_value":"<generated_secret_for_legacy_webhook_workflow>"},
-  {"key":"WEB_APP_URL","text_value":"https://storage.yandexcloud.net/<qr_mini_app_bucket>/qr.html"}
+  {"key":"WEB_APP_URL","text_value":"https://storage.yandexcloud.net/ion-gift-card-qr-mini-app-<suffix>/qr.html"}
 ]
 JSON
 ```
@@ -168,7 +191,7 @@ YC_LOCKBOX_SECRET_ID=<secret_id>
 rm lockbox-payload.json
 ```
 
-## 7. Создать service accounts
+## 8. Создать service accounts
 
 Нужны два service account:
 
@@ -188,7 +211,7 @@ YC_CI_SA_ID=<ci_service_account_id>
 YC_RUNTIME_SA_ID=<runtime_service_account_id>
 ```
 
-## 8. Выдать роли
+## 9. Выдать роли
 
 CI service account:
 
@@ -232,6 +255,10 @@ yc resource-manager folder add-access-binding "$YC_FOLDER_ID" \
 yc resource-manager folder add-access-binding "$YC_FOLDER_ID" \
   --role lockbox.viewer \
   --service-account-id "$YC_CI_SA_ID"
+
+yc resource-manager folder add-access-binding "$YC_FOLDER_ID" \
+  --role storage.editor \
+  --service-account-id "$YC_CI_SA_ID"
 ```
 
 Runtime service account:
@@ -252,7 +279,7 @@ yc resource-manager folder add-access-binding "$YC_FOLDER_ID" \
 
 Если Lockbox secret зашифрован KMS-ключом, runtime service account также должен иметь права на decrypt этого ключа.
 
-## 9. Связать GitHub repository с Yandex Cloud через federation
+## 10. Связать GitHub repository с Yandex Cloud через federation
 
 Текущий workflow не использует долгоживущий `YC_SA_JSON_CREDENTIALS`. Вместо этого он запрашивает GitHub OIDC token и меняет его на Yandex Cloud IAM token через:
 
@@ -282,7 +309,7 @@ ref=refs/tags/v*
 YC_CI_SA_ID=<ci_service_account_id>
 ```
 
-## 10. Создать Serverless Containers
+## 11. Создать Serverless Containers
 
 ```bash
 yc serverless container create --name ion-gift-card-api
@@ -305,27 +332,7 @@ YC_API_CONTAINER_NAME=ion-gift-card-api
 
 Bot больше не создаётся как Serverless Container: Telegram updates забираются через long polling с Compute VM, поэтому публичный endpoint для Telegram не нужен.
 
-Создайте отдельный Object Storage bucket для статического Telegram Mini App. Для QR HTML достаточно маленького лимита:
-
-```bash
-yc storage bucket create ion-gift-card-qr-mini-app-<suffix> \
-  --max-size 10485760 \
-  --public-read
-```
-
-Сохраните имя bucket в GitHub production variable:
-
-```text
-YC_QR_MINI_APP_BUCKET=ion-gift-card-qr-mini-app-<suffix>
-```
-
-Обновите `WEB_APP_URL` в Lockbox на production URL для QR mini app:
-
-```text
-WEB_APP_URL=https://storage.yandexcloud.net/<qr_mini_app_bucket>/qr.html
-```
-
-## 10a. Подготовить Compute VM параметры для polling bot
+## 12. Подготовить Compute VM параметры для polling bot
 
 VM создаётся автоматически workflow через `yc compute instance create` на базе Yandex Container Optimized Image. Если instance с именем `YC_BOT_VM_NAME` уже есть, workflow удаляет его и создаёт заново: bot stateless, а durable state хранится в PostgreSQL.
 
@@ -355,7 +362,7 @@ YC_BOT_VM_PUBLIC_NAT=false
 
 VM нужен только исходящий доступ к Container Registry, Lockbox и Telegram API. Inbound HTTP для polling bot не нужен. Предпочтительный production-вариант - настроить VPC NAT gateway/route table для подсети и указать `YC_BOT_VM_PUBLIC_NAT=false`. Если NAT gateway для подсети не настроен, оставьте `YC_BOT_VM_PUBLIC_NAT=true`, тогда VM будет получать public NAT address на network interface.
 
-## 11. Настроить GitHub repository
+## 13. Настроить GitHub repository
 
 В GitHub откройте:
 
@@ -383,6 +390,7 @@ YC_NETWORK_ID=<network_id>
 YC_SUBNET_ID=<subnet_id>
 YC_BOT_VM_NAME=ion-gift-card-bot
 YC_LOCKBOX_SECRET_ID=<lockbox_secret_id>
+YC_QR_MINI_APP_BUCKET=ion-gift-card-qr-mini-app-<suffix>
 ```
 
 Опционально:
@@ -398,7 +406,7 @@ YC_BOT_VM_PUBLIC_NAT=false
 
 GitHub secrets для текущего workflow не нужны, если federation настроен корректно. Production secrets (`DB_*`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`, `WEB_APP_URL`) хранятся в Lockbox.
 
-## 12. Запустить первый релиз
+## 14. Запустить первый релиз
 
 Убедитесь, что все коммиты запушены:
 
@@ -419,22 +427,25 @@ GitHub Actions должен выполнить:
 2. Получение Yandex Cloud IAM token через federation.
 3. Установку и настройку YC CLI.
 4. Чтение release secrets из Lockbox.
-5. Login в Yandex Container Registry.
-6. Build/push images:
+5. Загрузку `src/api/qr-mini-app.html` в Object Storage и проверку, что `WEB_APP_URL` в Lockbox указывает на этот объект.
+6. Login в Yandex Container Registry.
+7. Build/push images:
    - `ion-gift-card-api`
    - `ion-gift-card-bot-polling`
    - `ion-gift-card-migrations`
-7. Запуск миграций.
-8. Deploy API Serverless Container.
-9. Create/update Compute VM container для polling bot.
-10. Удаление Telegram webhook через `deleteWebhook`.
+8. Запуск миграций.
+9. Deploy API Serverless Container.
+10. Create/update Compute VM container для polling bot.
+11. Удаление Telegram webhook через `deleteWebhook`.
+12. Установку и проверку Telegram menu button со ссылкой на `WEB_APP_URL`.
 
-## 13. Проверить после релиза
+## 15. Проверить после релиза
 
 Проверьте health endpoints:
 
 ```bash
 curl https://<api_container_url>/health
+curl https://storage.yandexcloud.net/<qr_mini_app_bucket>/qr.html
 ```
 
 Проверьте, что Telegram webhook очищен:
@@ -449,9 +460,10 @@ curl "https://api.telegram.org/bot<token>/getWebhookInfo"
 /start
 ```
 
-## 14. Что улучшить после первого запуска
+Проверьте кнопку сканирования QR в Telegram: она должна открывать URL из `WEB_APP_URL`, а не временный tunnel или Serverless Container `/qr`.
 
-- Закрыть публичный доступ к PostgreSQL.
+## 16. Что улучшить после первого запуска
+
 - Закрыть публичный доступ к PostgreSQL после проверки runtime-доступа через VPC.
 - Перенести миграции в Yandex Cloud network, чтобы GitHub runner не ходил в БД напрямую.
 - Закрепить versions/actions по digest там, где это критично для supply chain.
