@@ -8,7 +8,7 @@ API request validation is implemented with Zod in `src/api/schemas.ts`. Controll
 
 Application use cases own business operations and database transaction boundaries. Card mutations run inside `db.transaction(...)`; debit and credit lock the card row before calculating the new balance.
 
-Authorization rules live in `src/application/card-access-policy.ts`. Adapters resolve identity, but resource access decisions are expressed as actor/action/resource checks in the application layer. This keeps global operator permissions and resource-relative ownership checks out of Telegram and HTTP handlers.
+Authorization rules live in `src/application/card-access-policy.ts`. Adapters resolve identity, but resource access decisions are expressed as actor/action/resource checks in the application layer. This keeps global operator permissions and resource-relative ownership checks out of Telegram and HTTP handlers. The layer is described in `docs/access-control.md`.
 
 Repositories own Knex queries and never decide business rules.
 
