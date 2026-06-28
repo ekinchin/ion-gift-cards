@@ -47,6 +47,7 @@ jobs:
           YC_BOT_VM_DISK_SIZE: ${{ vars.YC_BOT_VM_DISK_SIZE || '16' }}
           YC_BOT_VM_DISK_TYPE: ${{ vars.YC_BOT_VM_DISK_TYPE || 'network-hdd' }}
           YC_BOT_VM_PLATFORM: ${{ vars.YC_BOT_VM_PLATFORM || 'standard-v3' }}
+          YC_BOT_VM_PUBLIC_NAT: ${{ vars.YC_BOT_VM_PUBLIC_NAT || 'true' }}
           DB_SSL: ${{ vars.DB_SSL || 'true' }}
           DB_POOL_MIN: ${{ vars.DB_POOL_MIN || '0' }}
           DB_POOL_MAX: ${{ vars.DB_POOL_MAX || '2' }}
@@ -73,6 +74,7 @@ jobs:
             YC_BOT_VM_DISK_SIZE
             YC_BOT_VM_DISK_TYPE
             YC_BOT_VM_PLATFORM
+            YC_BOT_VM_PUBLIC_NAT
             DB_SSL
             DB_POOL_MIN
             DB_POOL_MAX
@@ -246,6 +248,7 @@ jobs:
           YC_BOT_VM_DISK_SIZE: ${{ vars.YC_BOT_VM_DISK_SIZE || '16' }}
           YC_BOT_VM_DISK_TYPE: ${{ vars.YC_BOT_VM_DISK_TYPE || 'network-hdd' }}
           YC_BOT_VM_PLATFORM: ${{ vars.YC_BOT_VM_PLATFORM || 'standard-v3' }}
+          YC_BOT_VM_PUBLIC_NAT: ${{ vars.YC_BOT_VM_PUBLIC_NAT || 'true' }}
           DB_SSL: ${{ vars.DB_SSL || 'true' }}
           DB_POOL_MIN: ${{ vars.DB_POOL_MIN || '0' }}
           DB_POOL_MAX: ${{ vars.DB_POOL_MAX || '2' }}

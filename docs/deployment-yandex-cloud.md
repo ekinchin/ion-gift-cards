@@ -81,7 +81,7 @@ DB_POOL_MIN=0
 DB_POOL_MAX=2
 ```
 
-The API revision is attached to the VPC network identified by `YC_NETWORK_ID` so it can reach Managed PostgreSQL through the cloud network. The bot VM is attached to `YC_SUBNET_ID` and receives a public NAT address for outbound Telegram API access; it does not need inbound public access for polling.
+The API revision is attached to the VPC network identified by `YC_NETWORK_ID` so it can reach Managed PostgreSQL through the cloud network. The bot VM is attached to `YC_SUBNET_ID`; it needs outbound access to Container Registry, Lockbox, and Telegram API, but it does not need inbound public access for polling. Prefer subnet egress through a VPC NAT gateway and set `YC_BOT_VM_PUBLIC_NAT=false`. If no subnet egress NAT is configured, leave `YC_BOT_VM_PUBLIC_NAT=true` so the VM receives a public NAT address.
 
 The bot VM does not receive DB or Telegram secrets through Compute metadata. The workflow writes only `user-data` with the image tag and Lockbox secret id. On boot, a systemd unit reads Lockbox through the VM service account, writes a root-only env file, logs in to Container Registry with the VM IAM token, and starts the polling container with `docker run --restart always`.
 
@@ -118,6 +118,7 @@ YC_BOT_VM_CORE_FRACTION
 YC_BOT_VM_DISK_SIZE
 YC_BOT_VM_DISK_TYPE
 YC_BOT_VM_PLATFORM
+YC_BOT_VM_PUBLIC_NAT
 ```
 
 These values are identifiers and release settings. Application secrets stay in Lockbox.

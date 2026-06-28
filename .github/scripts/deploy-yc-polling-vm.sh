@@ -29,6 +29,7 @@ vm_core_fraction="${YC_BOT_VM_CORE_FRACTION:-20}"
 vm_disk_size="${YC_BOT_VM_DISK_SIZE:-16}"
 vm_disk_type="${YC_BOT_VM_DISK_TYPE:-network-hdd}"
 vm_platform="${YC_BOT_VM_PLATFORM:-standard-v3}"
+vm_public_nat="${YC_BOT_VM_PUBLIC_NAT:-true}"
 db_ssl="${DB_SSL:-true}"
 db_pool_min="${DB_POOL_MIN:-0}"
 db_pool_max="${DB_POOL_MAX:-2}"
@@ -189,6 +190,14 @@ EOF
 
 replace_placeholder "$cloud_config_file" "__BOT_SCRIPT_B64__" "$bot_script_b64"
 
+network_interface="subnet-id=${YC_SUBNET_ID}"
+if [[ "$vm_public_nat" == "true" ]]; then
+  network_interface+=",nat-ip-version=ipv4"
+elif [[ "$vm_public_nat" != "false" ]]; then
+  echo "YC_BOT_VM_PUBLIC_NAT must be true or false, got: ${vm_public_nat}" >&2
+  exit 1
+fi
+
 if yc compute instance get "$YC_BOT_VM_NAME" >/dev/null 2>&1; then
   echo "Deleting existing polling bot VM before recreating it: ${YC_BOT_VM_NAME}"
   yc compute instance delete "$YC_BOT_VM_NAME"
@@ -203,5 +212,5 @@ yc compute instance create "$YC_BOT_VM_NAME" \
   --core-fraction "$vm_core_fraction" \
   --service-account-id "$YC_RUNTIME_SA_ID" \
   --create-boot-disk "image-family=container-optimized-image,image-folder-id=standard-images,type=${vm_disk_type},size=${vm_disk_size},auto-delete=true" \
-  --network-interface "subnet-id=${YC_SUBNET_ID},nat-ip-version=ipv4" \
+  --network-interface "$network_interface" \
   --metadata-from-file "user-data=${cloud_config_file}"

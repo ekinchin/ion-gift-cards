@@ -334,11 +334,12 @@ YC_BOT_VM_CORE_FRACTION=20
 YC_BOT_VM_DISK_SIZE=16
 YC_BOT_VM_DISK_TYPE=network-hdd
 YC_BOT_VM_PLATFORM=standard-v3
+YC_BOT_VM_PUBLIC_NAT=false
 ```
 
 Если `YC_ZONE` не задана, deploy script определяет её из `YC_SUBNET_ID`.
 
-VM получает public NAT только для исходящего доступа к Telegram API. Inbound HTTP для polling bot не нужен.
+VM нужен только исходящий доступ к Container Registry, Lockbox и Telegram API. Inbound HTTP для polling bot не нужен. Предпочтительный production-вариант - настроить VPC NAT gateway/route table для подсети и указать `YC_BOT_VM_PUBLIC_NAT=false`. Если NAT gateway для подсети не настроен, оставьте `YC_BOT_VM_PUBLIC_NAT=true`, тогда VM будет получать public NAT address на network interface.
 
 ## 11. Настроить GitHub repository
 
@@ -375,10 +376,11 @@ YC_LOCKBOX_SECRET_ID=<lockbox_secret_id>
 ```text
 DB_POOL_MIN=0
 DB_POOL_MAX=2
+YC_BOT_VM_PUBLIC_NAT=false
 ```
 
 `YC_NETWORK_ID` должен быть ID той VPC network, где находится подсеть Managed PostgreSQL. Workflow передаёт его в `revision-network-id` для API revision, чтобы runtime container мог ходить в PostgreSQL через облачную сеть.
-`YC_SUBNET_ID` должен быть ID подсети для Compute VM с polling bot. VM должна иметь исходящий доступ к Telegram API; текущий workflow создаёт public NAT address на network interface.
+`YC_SUBNET_ID` должен быть ID подсети для Compute VM с polling bot. VM должна иметь исходящий доступ к Telegram API. Если для подсети настроен VPC NAT gateway, используйте `YC_BOT_VM_PUBLIC_NAT=false`; иначе workflow создаёт public NAT address на network interface.
 
 GitHub secrets для текущего workflow не нужны, если federation настроен корректно. Production secrets (`DB_*`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`, `WEB_APP_URL`) хранятся в Lockbox.
 
