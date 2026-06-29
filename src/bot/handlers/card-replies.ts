@@ -2,6 +2,22 @@ import { cardOwnershipService, cardService } from '../../services/index.ts';
 import { replyWithCardQr } from '../card-qr.ts';
 import type { MyContext } from '../context.ts';
 import { resolveBotActor } from './access.ts';
+import type { TransactionWithReceipt } from '../../types/index.ts';
+
+function formatReceiptSummary(tx: TransactionWithReceipt) {
+  if (!tx.receipt) {
+    return '';
+  }
+
+  const labelByStatus = {
+    verified: 'Чек подтвержден',
+    pending_verification: 'Чек ожидает проверки',
+    failed: 'Чек не прошел проверку',
+    skipped: 'Чек не приложен',
+  };
+  const label = labelByStatus[tx.receipt.status];
+  return tx.receipt.receiptUrl ? `\n   🧾 ${label}: ${tx.receipt.receiptUrl}` : `\n   🧾 ${label}`;
+}
 
 export async function replyBalance(ctx: MyContext, code: string) {
   try {
@@ -102,7 +118,7 @@ export async function replyOwnedHistory(ctx: MyContext, code?: string) {
     const lines = transactions.slice(0, 10).map((tx) => {
       const sign = tx.type === 'DEBIT' ? '-' : '+';
       const emoji = tx.type === 'DEBIT' ? '🔴' : '🟢';
-      return `${emoji} ${sign}${tx.amount} ₽ → ${tx.balance_after} ₽`;
+      return `${emoji} ${sign}${tx.amount} ₽ → ${tx.balance_after} ₽${formatReceiptSummary(tx)}`;
     });
     await ctx.reply(`💳 Карта: ${card.code}\n📋 Последние операции:\n\n${lines.join('\n')}`);
   } catch (error) {
@@ -167,7 +183,7 @@ export async function replyHistory(ctx: MyContext, code: string) {
     const lines = transactions.slice(0, 10).map((tx) => {
       const sign = tx.type === 'DEBIT' ? '-' : '+';
       const emoji = tx.type === 'DEBIT' ? '🔴' : '🟢';
-      return `${emoji} ${sign}${tx.amount} ₽ → ${tx.balance_after} ₽`;
+      return `${emoji} ${sign}${tx.amount} ₽ → ${tx.balance_after} ₽${formatReceiptSummary(tx)}`;
     });
     await ctx.reply(`💳 Карта: ${card.code}\n📋 Последние операции:\n\n${lines.join('\n')}`);
   } catch (error) {

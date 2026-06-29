@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { Knex } from 'knex';
 import { db } from '../db/knex.ts';
-import type { Card, IdentityProvider, Transaction } from '../types/index.ts';
+import type { Card, IdentityProvider, Transaction, TransactionReceipt, TransactionWithReceipt } from '../types/index.ts';
 import { generateCardCode } from './card-code.generator.ts';
 import { assertCanReadCardHistory, type Actor } from './card-access-policy.ts';
 import {
@@ -27,6 +27,10 @@ interface CardReader {
 
 interface TransactionReader {
   findByCardId(cardId: string, trx?: Knex.Transaction): Promise<Transaction[]>;
+}
+
+interface TransactionReceiptReader {
+  findByTransactionIds(transactionIds: string[], trx?: Knex.Transaction): Promise<TransactionReceipt[]>;
 }
 
 interface CustomerIdentityResolver {
@@ -93,6 +97,7 @@ export class CardOwnershipUseCases {
   #txRepo: TransactionReader;
   #customerRepo: CustomerIdentityResolver;
   #ownershipRepo: OwnershipStore;
+  #receiptRepo?: TransactionReceiptReader;
   #transaction: TransactionRunner;
   #now: () => Date;
   #tokenFactory: () => string;
@@ -106,7 +111,8 @@ export class CardOwnershipUseCases {
     transaction: TransactionRunner = (callback) => db.transaction(callback),
     now: () => Date = () => new Date(),
     tokenFactory: () => string = () => randomUUID(),
-    cardCodeFactory: () => string = generateCardCode
+    cardCodeFactory: () => string = generateCardCode,
+    receiptRepo?: TransactionReceiptReader
   ) {
     this.#cardRepo = cardRepo;
     this.#txRepo = txRepo;
@@ -116,6 +122,7 @@ export class CardOwnershipUseCases {
     this.#now = now;
     this.#tokenFactory = tokenFactory;
     this.#cardCodeFactory = cardCodeFactory;
+    this.#receiptRepo = receiptRepo;
   }
 
   async resolveCustomer(input: ProviderIdentityInput) {
@@ -191,16 +198,16 @@ export class CardOwnershipUseCases {
     return { card, balance: Number(card.balance) };
   }
 
-  async getOwnedHistory(customerId: string, code?: string): Promise<{ card: Card; transactions: Transaction[] }> {
+  async getOwnedHistory(customerId: string, code?: string): Promise<{ card: Card; transactions: TransactionWithReceipt[] }> {
     const card = await this.#resolveOwnedCard(customerId, code);
     const transactions = await this.#txRepo.findByCardId(card.id);
-    return { card, transactions };
+    return { card, transactions: await this.#withReceiptSummaries(transactions) };
   }
 
   async getHistoryByCode(
     code: string,
     actor: Actor = {}
-  ): Promise<{ card: Card; transactions: Transaction[] }> {
+  ): Promise<{ card: Card; transactions: TransactionWithReceipt[] }> {
     const card = await this.#cardRepo.findByCode(code);
     if (!card) {
       throw new CardNotFoundError();
@@ -210,7 +217,35 @@ export class CardOwnershipUseCases {
     assertCanReadCardHistory(actor, owner);
 
     const transactions = await this.#txRepo.findByCardId(card.id);
-    return { card, transactions };
+    return { card, transactions: await this.#withReceiptSummaries(transactions) };
+  }
+
+  async #withReceiptSummaries(transactions: Transaction[]): Promise<TransactionWithReceipt[]> {
+    if (!this.#receiptRepo || transactions.length === 0) {
+      return transactions;
+    }
+
+    const receipts = await this.#receiptRepo.findByTransactionIds(transactions.map((tx) => tx.id));
+    const receiptByTransactionId = new Map(receipts.map((receipt) => [receipt.transaction_id, receipt]));
+
+    return transactions.map((tx) => {
+      if (tx.type === 'CREATE') {
+        return tx;
+      }
+
+      const receipt = receiptByTransactionId.get(tx.id);
+      if (!receipt) {
+        return tx;
+      }
+
+      return {
+        ...tx,
+        receipt: {
+          status: receipt.verification_status,
+          receiptUrl: receipt.receipt_url || undefined,
+        },
+      };
+    });
   }
 
   async startTransfer(

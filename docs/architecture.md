@@ -16,6 +16,16 @@ Database constraints protect critical invariants for balances, transaction amoun
 
 Money is still represented as JavaScript `number` in application code. The current architecture protects basic amount invariants through Zod, use-case checks, and database constraints; a dedicated money value object remains a possible future improvement.
 
+## Accepted Design: Transaction Receipts
+
+`transactions` remains the card balance ledger. Fiscal receipt confirmations live in `transaction_receipts` and attach to a specific `CREATE`, `DEBIT`, or `CREDIT` transaction.
+
+In soft mode, the operator operation is applied to the card first, then the bot asks the operator to scan the fiscal receipt QR or provide a skip reason. Receipt statuses are `pending_verification`, `verified`, `failed`, and `skipped`. A `failed` receipt does not trigger automatic balance correction; the case is handled as an operational incident.
+
+The receipt URL is not treated as the source of truth. The system stores the raw QR payload and normalized fiscal fields, and builds a browser URL from those fields when possible.
+
+Card owner history shows receipt statuses and links for `DEBIT` and `CREDIT`. Skip reasons and operator comments are operator/admin-only. A gift-card `CREATE` receipt is stored for audit but hidden from the card owner because the card may have been bought by one person and gifted to another.
+
 ## Accepted Design: Card Ledger and Domain Events
 
 `transactions` is the card ledger. Its purpose is to explain and verify `cards.balance`, support balance recalculation, and make duplicated debit or credit operations discoverable. It should stay focused on card balance mutations and should not become a general business activity log.

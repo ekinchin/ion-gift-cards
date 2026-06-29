@@ -3,9 +3,12 @@ import { cardService } from '../../../services/index.ts';
 import { replyWithCardQr } from '../../card-qr.ts';
 import { parseCreateCardAmount } from '../../create-card-command.ts';
 import type { MyContext } from '../../context.ts';
+import { promptForReceiptAttachment } from '../../receipt-flow.ts';
+import type { TelegramConfig } from '../../../configuration/configuration-service.ts';
 import { requireBotOperator } from '../access.ts';
 
-export async function createGiftCardCommandHandler(ctx: CommandContext<MyContext>) {
+export function createGiftCardCommandHandlerWithConfig(telegramConfig: TelegramConfig) {
+  return async function createGiftCardCommandHandler(ctx: CommandContext<MyContext>) {
   ctx.session.action = undefined;
   const operatorId = await requireBotOperator(ctx);
   if (!operatorId) {
@@ -23,10 +26,20 @@ export async function createGiftCardCommandHandler(ctx: CommandContext<MyContext
   }
 
   try {
-    const card = await cardService.createCard(amount.amount, operatorId);
-    await replyWithCardQr(ctx, '✅ Подарочная карта создана', card);
+    const result = await cardService.createCard(amount.amount, operatorId);
+    await replyWithCardQr(ctx, '✅ Подарочная карта создана', result.card);
+    await promptForReceiptAttachment(ctx, telegramConfig, {
+      transactionId: result.transaction.id,
+      operationType: result.transaction.type,
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Ошибка';
     await ctx.reply(`❌ ${message}`);
   }
+  };
 }
+
+export const createGiftCardCommandHandler = createGiftCardCommandHandlerWithConfig({
+  mode: 'polling',
+  botToken: '',
+});

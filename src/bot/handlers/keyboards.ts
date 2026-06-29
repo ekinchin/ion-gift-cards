@@ -18,6 +18,8 @@ function scanButtonText(action: ScanAction) {
       return 'Сканировать QR для пополнения';
     case 'link':
       return 'Сканировать QR для привязки';
+    case 'receipt':
+      return 'Сканировать QR чека';
     case 'balance':
       return 'Сканировать QR для баланса';
   }

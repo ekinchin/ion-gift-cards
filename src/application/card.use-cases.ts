@@ -13,6 +13,10 @@ import {
 
 const MAX_CARD_CODE_GENERATION_ATTEMPTS = 5;
 type TransactionRunner = <T>(callback: (trx: Knex.Transaction) => Promise<T>) => Promise<T>;
+export interface CardMutationResult {
+  card: Card;
+  transaction: Transaction;
+}
 
 export class CardUseCases {
   #cardRepo: CardRepository;
@@ -32,7 +36,7 @@ export class CardUseCases {
     this.#transaction = transaction;
   }
 
-  async createCard(initialAmount: number, operatorId?: string): Promise<Card> {
+  async createCard(initialAmount: number, operatorId?: string): Promise<CardMutationResult> {
     this.#assertPositiveAmount(initialAmount);
 
     return this.#transaction(async (trx) => {
@@ -40,7 +44,7 @@ export class CardUseCases {
 
       const card = await this.#cardRepo.create(code, initialAmount, trx);
 
-      await this.#txRepo.create({
+      const transaction = await this.#txRepo.create({
         cardId: card.id,
         type: 'CREATE',
         amount: initialAmount,
@@ -49,7 +53,7 @@ export class CardUseCases {
         operatorId,
       }, trx);
 
-      return card;
+      return { card, transaction };
     });
   }
 
@@ -73,10 +77,10 @@ export class CardUseCases {
     return { card, balance: Number(card.balance) };
   }
 
-  async debit(code: string, amount: number, operatorId: string, description?: string): Promise<Card> {
+  async debit(code: string, amount: number, operatorId: string, description?: string): Promise<CardMutationResult> {
     this.#assertPositiveAmount(amount);
 
-    return db.transaction(async (trx) => {
+    return this.#transaction(async (trx) => {
       const card = await this.#cardRepo.findByCodeForUpdate(code, trx);
       if (!card) {
         throw new CardNotFoundError();
@@ -90,7 +94,7 @@ export class CardUseCases {
       const newBalance = currentBalance - amount;
       await this.#cardRepo.updateBalance(card.id, newBalance, trx);
 
-      await this.#txRepo.create({
+      const transaction = await this.#txRepo.create({
         cardId: card.id,
         type: 'DEBIT',
         amount,
@@ -99,14 +103,14 @@ export class CardUseCases {
         operatorId,
       }, trx);
 
-      return { ...card, balance: newBalance };
+      return { card: { ...card, balance: newBalance }, transaction };
     });
   }
 
-  async credit(code: string, amount: number, operatorId: string, description?: string): Promise<Card> {
+  async credit(code: string, amount: number, operatorId: string, description?: string): Promise<CardMutationResult> {
     this.#assertPositiveAmount(amount);
 
-    return db.transaction(async (trx) => {
+    return this.#transaction(async (trx) => {
       const card = await this.#cardRepo.findByCodeForUpdate(code, trx);
       if (!card) {
         throw new CardNotFoundError();
@@ -116,7 +120,7 @@ export class CardUseCases {
       const newBalance = currentBalance + amount;
       await this.#cardRepo.updateBalance(card.id, newBalance, trx);
 
-      await this.#txRepo.create({
+      const transaction = await this.#txRepo.create({
         cardId: card.id,
         type: 'CREDIT',
         amount,
@@ -125,7 +129,7 @@ export class CardUseCases {
         operatorId,
       }, trx);
 
-      return { ...card, balance: newBalance };
+      return { card: { ...card, balance: newBalance }, transaction };
     });
   }
 

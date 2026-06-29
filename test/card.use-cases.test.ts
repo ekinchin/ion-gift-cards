@@ -6,7 +6,7 @@ import type { CardRepository } from '../src/repositories/card.repository.ts';
 import type { TransactionRepository } from '../src/repositories/transaction.repository.ts';
 import { cardService } from '../src/services/index.ts';
 import { closeDatabase } from './helpers/db.ts';
-import type { Card } from '../src/types/index.ts';
+import type { Card, Transaction } from '../src/types/index.ts';
 
 test.after(async () => {
   await closeDatabase();
@@ -32,6 +32,19 @@ function makeCard(overrides: Partial<Card> = {}): Card {
     balance: overrides.balance ?? 100,
     initial_amount: overrides.initial_amount ?? 100,
     is_active: overrides.is_active ?? true,
+    created_at: overrides.created_at ?? new Date('2026-06-25T00:00:00.000Z'),
+  };
+}
+
+function makeTransaction(overrides: Partial<Transaction> = {}): Transaction {
+  return {
+    id: overrides.id ?? 'tx-1',
+    card_id: overrides.card_id ?? 'card-1',
+    type: overrides.type ?? 'CREATE',
+    amount: overrides.amount ?? 250,
+    balance_after: overrides.balance_after ?? 250,
+    description: overrides.description ?? null,
+    operator_id: overrides.operator_id ?? 'operator-1',
     created_at: overrides.created_at ?? new Date('2026-06-25T00:00:00.000Z'),
   };
 }
@@ -77,6 +90,7 @@ test('createCard generates a card code instead of accepting one from caller', as
   const txRepo = {
     async create(transaction: unknown) {
       createdTransactions.push(transaction);
+      return makeTransaction();
     },
   } as TransactionRepository;
   const useCases = new CardUseCases(
@@ -86,10 +100,11 @@ test('createCard generates a card code instead of accepting one from caller', as
     async (callback) => callback({} as Knex.Transaction)
   );
 
-  const card = await useCases.createCard(250, 'operator-1');
+  const result = await useCases.createCard(250, 'operator-1');
 
-  assert.equal(card.code, 'ION-ABCDEFGH2345');
-  assert.equal(card.balance, 250);
+  assert.equal(result.card.code, 'ION-ABCDEFGH2345');
+  assert.equal(result.card.balance, 250);
+  assert.equal(result.transaction.id, 'tx-1');
   assert.equal(createdTransactions.length, 1);
 });
 
@@ -106,7 +121,9 @@ test('createCard retries generated codes when a collision is found', async () =>
     },
   } as CardRepository;
   const txRepo = {
-    async create() {},
+    async create() {
+      return makeTransaction();
+    },
   } as TransactionRepository;
   const useCases = new CardUseCases(
     cardRepo,
@@ -115,8 +132,72 @@ test('createCard retries generated codes when a collision is found', async () =>
     async (callback) => callback({} as Knex.Transaction)
   );
 
-  const card = await useCases.createCard(100, 'operator-1');
+  const result = await useCases.createCard(100, 'operator-1');
 
-  assert.equal(card.code, 'ION-BCDEFGHJKLMN');
+  assert.equal(result.card.code, 'ION-BCDEFGHJKLMN');
   assert.deepEqual(checkedCodes, ['ION-ABCDEFGH2345', 'ION-BCDEFGHJKLMN']);
+});
+
+test('debit returns the updated card and created transaction', async () => {
+  const card = makeCard({ balance: 500 });
+  const transaction = makeTransaction({
+    id: 'tx-debit',
+    type: 'DEBIT',
+    amount: 150,
+    balance_after: 350,
+  });
+  const cardRepo = {
+    async findByCodeForUpdate() {
+      return card;
+    },
+    async updateBalance() {},
+  } as CardRepository;
+  const txRepo = {
+    async create() {
+      return transaction;
+    },
+  } as TransactionRepository;
+  const useCases = new CardUseCases(
+    cardRepo,
+    txRepo,
+    () => 'ION-ABCDEFGH2345',
+    async (callback) => callback({} as Knex.Transaction)
+  );
+
+  const result = await useCases.debit('CARD-1', 150, 'operator-1');
+
+  assert.equal(result.card.balance, 350);
+  assert.equal(result.transaction.id, 'tx-debit');
+});
+
+test('credit returns the updated card and created transaction', async () => {
+  const card = makeCard({ balance: 500 });
+  const transaction = makeTransaction({
+    id: 'tx-credit',
+    type: 'CREDIT',
+    amount: 150,
+    balance_after: 650,
+  });
+  const cardRepo = {
+    async findByCodeForUpdate() {
+      return card;
+    },
+    async updateBalance() {},
+  } as CardRepository;
+  const txRepo = {
+    async create() {
+      return transaction;
+    },
+  } as TransactionRepository;
+  const useCases = new CardUseCases(
+    cardRepo,
+    txRepo,
+    () => 'ION-ABCDEFGH2345',
+    async (callback) => callback({} as Knex.Transaction)
+  );
+
+  const result = await useCases.credit('CARD-1', 150, 'operator-1');
+
+  assert.equal(result.card.balance, 650);
+  assert.equal(result.transaction.id, 'tx-credit');
 });
