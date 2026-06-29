@@ -17,6 +17,7 @@ import {
   replyHistory,
 } from './card-replies.ts';
 import { requireBotOperator } from './access.ts';
+import { mainMenuKeyboard } from './keyboards.ts';
 import { handleMenuButton, handlePendingMenuAction } from './menu-handlers.ts';
 
 export function registerMessageHandlers(bot: Bot<MyContext>, telegramConfig: TelegramConfig) {
@@ -62,7 +63,10 @@ export function registerMessageHandlers(bot: Bot<MyContext>, telegramConfig: Tel
           operatorId,
         });
         ctx.session.pendingReceipt = undefined;
-        await ctx.reply(`${userCopy.bot.receipts.saved}: ${formatReceiptVerificationStatus(receipt.verification_status)}`);
+        await ctx.reply(
+          `${userCopy.bot.receipts.saved}: ${formatReceiptVerificationStatus(receipt.verification_status)}`,
+          { reply_markup: mainMenuKeyboard(true) }
+        );
       } catch (error) {
         await ctx.reply(`${userCopy.bot.replies.errorPrefix} ${formatBotErrorMessage(error)}`);
       }
@@ -122,7 +126,10 @@ export function registerMessageHandlers(bot: Bot<MyContext>, telegramConfig: Tel
           operatorId,
         });
         ctx.session.pendingReceipt = undefined;
-        await ctx.reply(`${userCopy.bot.receipts.skipped}: ${formatReceiptSkipReason(receipt.skip_reason!)}`);
+        await ctx.reply(
+          `${userCopy.bot.receipts.skipped}: ${formatReceiptSkipReason(receipt.skip_reason!)}`,
+          { reply_markup: mainMenuKeyboard(true) }
+        );
       } catch (error) {
         await ctx.reply(`${userCopy.bot.replies.errorPrefix} ${formatBotErrorMessage(error)}`);
       }
