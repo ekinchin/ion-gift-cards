@@ -10,7 +10,7 @@ import {
 const telegramConfig = { mode: 'polling' as const, botToken: 'token', webAppUrl: 'https://example.test/qr' };
 
 function makeContext() {
-  const replies: Array<{ text: string; options?: { reply_markup?: { inline_keyboard?: Array<Array<{ text: string; web_app?: { url: string } }>> } } }> = [];
+  const replies: Array<{ text: string; options?: { reply_markup?: { keyboard?: Array<Array<{ text: string; web_app?: { url: string } }>> } } }> = [];
   return {
     session: {},
     replies,
@@ -38,7 +38,7 @@ test('promptForReceiptAttachment stores pending transaction and asks operator to
   assert.match(ctx.replies[0]!.text, /нечитаемый QR/);
   assert.doesNotMatch(ctx.replies[0]!.text, /qr_unreadable|receipt_lost|cash_register_without_qr|technical_error/);
   assert.match(
-    ctx.replies[0]!.options!.reply_markup!.inline_keyboard![0]![0]!.web_app!.url,
+    ctx.replies[0]!.options!.reply_markup!.keyboard![0]![0]!.web_app!.url,
     /action=receipt/
   );
 });

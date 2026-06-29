@@ -1,4 +1,4 @@
-import { InlineKeyboard, Keyboard } from 'grammy';
+import { Keyboard } from 'grammy';
 import type { TelegramConfig } from '../../configuration/configuration-service.ts';
 import { userCopy } from '../../copy.ts';
 import type { MyContext } from '../context.ts';
@@ -34,10 +34,10 @@ export function scanKeyboard(
     return undefined;
   }
 
-  return new InlineKeyboard().webApp(
+  return new Keyboard().webApp(
     scanButtonText(params.action),
     buildScanWebAppUrl(telegramConfig.webAppUrl, params)
-  );
+  ).resized().oneTime();
 }
 
 export function mainMenuKeyboard(isOperator = false) {
