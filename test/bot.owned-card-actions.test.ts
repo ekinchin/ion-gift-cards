@@ -114,6 +114,7 @@ test('menu history shows the linked card history without prompting for QR', asyn
 
 test('menu balance prompts to scan a card when there is no linked card', async () => {
   const ctx = makeContext();
+  const restoreOperator = patchMethod(operatorRepository, 'findByTelegramId', async () => null);
   const restoreResolve = patchMethod(cardOwnershipService, 'resolveCustomer', async () => ({
     customer: { id: 'customer-1' },
     identity: {},
@@ -147,11 +148,13 @@ test('menu balance prompts to scan a card when there is no linked card', async (
   } finally {
     restoreBalance();
     restoreResolve();
+    restoreOperator();
   }
 });
 
 test('menu history prompts to scan a card when there is no linked card', async () => {
   const ctx = makeContext();
+  const restoreOperator = patchMethod(operatorRepository, 'findByTelegramId', async () => null);
   const restoreResolve = patchMethod(cardOwnershipService, 'resolveCustomer', async () => ({
     customer: { id: 'customer-1' },
     identity: {},
@@ -185,6 +188,7 @@ test('menu history prompts to scan a card when there is no linked card', async (
   } finally {
     restoreHistory();
     restoreResolve();
+    restoreOperator();
   }
 });
 
@@ -280,6 +284,7 @@ test('link command without a code shows the existing card instead of a scan prom
 test('menu link manually entered code links the card instead of showing public balance', async () => {
   const card = makeCard();
   const ctx = makeContext();
+  const restoreOperator = patchMethod(operatorRepository, 'findByTelegramId', async () => null);
   const restoreResolve = patchMethod(cardOwnershipService, 'resolveCustomer', async () => ({
     customer: { id: 'customer-1' },
     identity: {},
@@ -307,6 +312,48 @@ test('menu link manually entered code links the card instead of showing public b
     restoreLink();
     restoreList();
     restoreResolve();
+    restoreOperator();
+  }
+});
+
+test('operator menu link prompt keeps operator actions on the keyboard', async () => {
+  const ctx = makeContext();
+  const restoreOperator = patchMethod(operatorRepository, 'findByTelegramId', async () => ({
+    id: 'operator-1',
+    telegram_id: 1001,
+    name: 'Operator',
+    is_active: true,
+    created_at: now,
+  }));
+  const restoreResolve = patchMethod(cardOwnershipService, 'resolveCustomer', async () => ({
+    customer: { id: 'customer-1' },
+    identity: {},
+  }));
+  const restoreList = patchMethod(cardOwnershipService, 'listCards', async () => []);
+
+  try {
+    const handled = await handleMenuButton(ctx as never, menuButtonLabels.link, telegramConfig);
+
+    assert.equal(handled, true);
+    assert.equal(ctx.session.action, 'link');
+    const replyMarkup = (ctx.replies[0]!.options as { reply_markup: {
+      keyboard: Array<Array<{ text: string }>>;
+    } }).reply_markup;
+    assert.deepEqual(replyMarkup.keyboard.slice(1).flat().map((button) => button.text), [
+      menuButtonLabels.balance,
+      menuButtonLabels.history,
+      menuButtonLabels.mycards,
+      menuButtonLabels.createPersonal,
+      menuButtonLabels.link,
+      menuButtonLabels.unlink,
+      menuButtonLabels.debit,
+      menuButtonLabels.credit,
+      menuButtonLabels.create,
+    ]);
+  } finally {
+    restoreList();
+    restoreResolve();
+    restoreOperator();
   }
 });
 

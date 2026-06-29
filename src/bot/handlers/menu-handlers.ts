@@ -9,7 +9,7 @@ import {
   getPendingActionForMenuAction,
   parsePendingMenuActionInput,
 } from '../pending-menu-action.ts';
-import { requireBotOperator } from './access.ts';
+import { requireBotOperator, resolveBotActor } from './access.ts';
 import { replyScanPrompt } from './keyboards.ts';
 import { promptForReceiptAttachment } from '../receipt-flow.ts';
 import {
@@ -30,13 +30,15 @@ async function promptForMenuCardScan(
   telegramConfig: TelegramConfig,
   action: Extract<ScanAction, 'balance' | 'history'>
 ) {
+  const actor = await resolveBotActor(ctx);
   ctx.session.action = action;
   await replyScanPrompt(
     ctx,
     telegramConfig,
     action === 'balance' ? userCopy.bot.prompts.balanceScan : userCopy.bot.prompts.historyScan,
     { action },
-    action === 'balance' ? userCopy.bot.prompts.balanceManualFallback : userCopy.bot.prompts.historyManualFallback
+    action === 'balance' ? userCopy.bot.prompts.balanceManualFallback : userCopy.bot.prompts.historyManualFallback,
+    Boolean(actor.operatorId)
   );
 }
 
@@ -80,12 +82,14 @@ export async function handleMenuButton(
     if (await replyExistingLinkedCard(ctx)) {
       return true;
     }
+    const actor = await resolveBotActor(ctx);
     await replyScanPrompt(
       ctx,
       telegramConfig,
       userCopy.bot.prompts.linkScan,
       { action: 'link' },
-      userCopy.bot.prompts.linkManualFallback
+      userCopy.bot.prompts.linkManualFallback,
+      Boolean(actor.operatorId)
     );
     return true;
   }
