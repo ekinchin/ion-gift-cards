@@ -6,6 +6,7 @@ import type { ScanAction } from '../scan-web-app.ts';
 import { parsePositiveAmount } from './amount.ts';
 import { requireBotOperator } from './access.ts';
 import { replyScanPrompt } from './keyboards.ts';
+import { promptForReceiptAttachment } from '../receipt-flow.ts';
 
 type CardOperationKind = Extract<ScanAction, 'debit' | 'credit'>;
 
@@ -102,10 +103,14 @@ export function createCardOperationCommandHandler(
 
     if (command.mode === 'direct') {
       try {
-        const card = kind === 'debit'
+        const result = kind === 'debit'
           ? await cardService.debit(command.code, command.amount, operatorId, command.description)
           : await cardService.credit(command.code, command.amount, operatorId, command.description);
-        await ctx.reply(copy.success(command.amount, command.code, card.balance));
+        await ctx.reply(copy.success(command.amount, command.code, result.card.balance));
+        await promptForReceiptAttachment(ctx, telegramConfig, {
+          transactionId: result.transaction.id,
+          operationType: result.transaction.type,
+        });
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Ошибка';
         await ctx.reply(`❌ ${message}`);

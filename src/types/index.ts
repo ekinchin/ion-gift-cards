@@ -18,6 +18,40 @@ export interface Transaction {
   created_at: Date;
 }
 
+export type ReceiptVerificationStatus = 'verified' | 'pending_verification' | 'failed' | 'skipped';
+export type ReceiptSkipReason = 'qr_unreadable' | 'receipt_lost' | 'cash_register_without_qr' | 'technical_error' | 'other';
+
+export interface TransactionReceipt {
+  id: string;
+  transaction_id: string;
+  raw_qr_payload: string | null;
+  receipt_url: string | null;
+  fiscal_fn: string | null;
+  fiscal_fd: string | null;
+  fiscal_fp: string | null;
+  fiscal_operation_type: string | null;
+  fiscal_fingerprint: string | null;
+  receipt_issued_at: Date | null;
+  receipt_total: number | null;
+  receipt_inn: string | null;
+  verification_status: ReceiptVerificationStatus;
+  verification_error: string | null;
+  skip_reason: ReceiptSkipReason | null;
+  skip_comment: string | null;
+  created_by_operator_id: string | null;
+  created_at: Date;
+  verified_at: Date | null;
+}
+
+export interface TransactionReceiptSummary {
+  status: ReceiptVerificationStatus;
+  receiptUrl?: string;
+}
+
+export type TransactionWithReceipt = Transaction & {
+  receipt?: TransactionReceiptSummary;
+};
+
 export interface Customer {
   id: string;
   created_at: Date;

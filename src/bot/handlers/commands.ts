@@ -4,7 +4,7 @@ import type { MyContext } from '../context.ts';
 import { createCardOperationCommandHandler } from './card-operation-command.ts';
 import { acceptTransferCommandHandler } from './commands/accept-transfer.ts';
 import { balanceCommandHandler } from './commands/balance.ts';
-import { createGiftCardCommandHandler } from './commands/create.ts';
+import { createGiftCardCommandHandlerWithConfig } from './commands/create.ts';
 import { createMyCardCommandHandler } from './commands/create-my-card.ts';
 import { historyCommandHandler } from './commands/history.ts';
 import { createLinkCommandHandler } from './commands/link.ts';
@@ -39,6 +39,6 @@ export function registerCommandHandlers(bot: Bot<MyContext>, telegramConfig: Tel
   bot.command('accept_transfer', acceptTransferCommandHandler);
   bot.command('debit', createCardOperationCommandHandler('debit', telegramConfig));
   bot.command('credit', createCardOperationCommandHandler('credit', telegramConfig));
-  bot.command('create_gift_card', createGiftCardCommandHandler);
+  bot.command('create_gift_card', createGiftCardCommandHandlerWithConfig(telegramConfig));
   bot.command('history', historyCommandHandler);
 }

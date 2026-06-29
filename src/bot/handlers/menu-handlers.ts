@@ -9,6 +9,7 @@ import {
 } from '../pending-menu-action.ts';
 import { requireBotOperator } from './access.ts';
 import { replyScanPrompt } from './keyboards.ts';
+import { promptForReceiptAttachment } from '../receipt-flow.ts';
 import {
   createPersonalCardForCurrentCustomer,
   replyExistingLinkedCard,
@@ -141,8 +142,12 @@ export async function handlePendingMenuAction(
   }
 
   try {
-    const card = await cardService.createCard(pending.amount, operatorId);
-    await replyWithCardQr(ctx, '✅ Карта создана', card);
+    const result = await cardService.createCard(pending.amount, operatorId);
+    await replyWithCardQr(ctx, '✅ Карта создана', result.card);
+    await promptForReceiptAttachment(ctx, telegramConfig, {
+      transactionId: result.transaction.id,
+      operationType: result.transaction.type,
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Ошибка';
     await ctx.reply(`❌ ${message}`);

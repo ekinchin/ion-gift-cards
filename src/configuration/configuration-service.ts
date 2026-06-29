@@ -17,6 +17,25 @@ const booleanStringSchema = z.preprocess(
   z.enum(['true', 'false'])
     .transform((value) => value === 'true')
 );
+const receiptModeSchema = z.preprocess(
+  (value) => value === '' || value === undefined ? 'soft' : value,
+  z.enum(['soft', 'required'])
+);
+const receiptProviderSchema = z.preprocess(
+  (value) => value === '' || value === undefined ? 'none' : value,
+  z.enum(['none', 'fns', 'ofd'])
+);
+const receiptOnlineVerificationSchema = z.preprocess(
+  (value) => value === '' || value === undefined ? 'disabled' : value,
+  z.enum(['disabled', 'enabled'])
+);
+const receiptAllowedInnsSchema = z.preprocess(
+  (value) => typeof value === 'string'
+    ? value.split(',').map((item) => item.trim()).filter(Boolean)
+    : [],
+  z.array(z.string().min(1))
+);
+const positiveIntegerSchema = z.coerce.number().int().min(1);
 
 export const configurationSchema = z.object({
   api: z.object({
@@ -56,12 +75,20 @@ export const configurationSchema = z.object({
       webAppUrl: optionalString,
     }),
   ]),
+  receipt: z.object({
+    mode: receiptModeSchema,
+    allowedInns: receiptAllowedInnsSchema,
+    maxAgeMinutes: positiveIntegerSchema.default(60),
+    onlineVerification: receiptOnlineVerificationSchema,
+    provider: receiptProviderSchema,
+  }),
 });
 
 export type AppConfig = z.infer<typeof configurationSchema>;
 export type ApiConfig = AppConfig['api'];
 export type DatabaseConfig = AppConfig['database'];
 export type TelegramConfig = AppConfig['telegram'];
+export type ReceiptConfig = AppConfig['receipt'];
 
 type Env = NodeJS.ProcessEnv;
 
@@ -80,6 +107,11 @@ const envNamesByPath = new Map<string, string>([
   ['telegram.botToken', 'TELEGRAM_BOT_TOKEN'],
   ['telegram.webAppUrl', 'WEB_APP_URL'],
   ['telegram.webhookSecret', 'TELEGRAM_WEBHOOK_SECRET'],
+  ['receipt.mode', 'RECEIPT_MODE'],
+  ['receipt.allowedInns', 'RECEIPT_ALLOWED_INNS'],
+  ['receipt.maxAgeMinutes', 'RECEIPT_MAX_AGE_MINUTES'],
+  ['receipt.onlineVerification', 'RECEIPT_ONLINE_VERIFICATION'],
+  ['receipt.provider', 'RECEIPT_PROVIDER'],
 ]);
 
 function formatConfigError(error: z.ZodError, pathPrefix?: string) {
@@ -132,6 +164,16 @@ function buildTelegramConfig(env: Env): unknown {
   };
 }
 
+function buildReceiptConfig(env: Env): unknown {
+  return {
+    mode: env.RECEIPT_MODE,
+    allowedInns: env.RECEIPT_ALLOWED_INNS,
+    maxAgeMinutes: env.RECEIPT_MAX_AGE_MINUTES,
+    onlineVerification: env.RECEIPT_ONLINE_VERIFICATION,
+    provider: env.RECEIPT_PROVIDER,
+  };
+}
+
 export class ConfigurationService {
   private readonly env: Env;
 
@@ -148,6 +190,7 @@ export class ConfigurationService {
       api: buildApiConfig(this.env),
       database: buildDatabaseConfig(this.env),
       telegram: buildTelegramConfig(this.env),
+      receipt: buildReceiptConfig(this.env),
     });
   }
 
@@ -161,5 +204,9 @@ export class ConfigurationService {
 
   getTelegramConfig(): TelegramConfig {
     return parseConfig(configurationSchema.shape.telegram, buildTelegramConfig(this.env), 'telegram');
+  }
+
+  getReceiptConfig(): ReceiptConfig {
+    return parseConfig(configurationSchema.shape.receipt, buildReceiptConfig(this.env), 'receipt');
   }
 }

@@ -1,4 +1,4 @@
-export type ScanAction = 'balance' | 'history' | 'debit' | 'credit' | 'link';
+export type ScanAction = 'balance' | 'history' | 'debit' | 'credit' | 'link' | 'receipt';
 
 export interface ScanWebAppParams {
   action: ScanAction;
@@ -10,7 +10,7 @@ export interface ScanWebAppPayload extends ScanWebAppParams {
   code: string;
 }
 
-const scanActions = new Set<ScanAction>(['balance', 'history', 'debit', 'credit', 'link']);
+const scanActions = new Set<ScanAction>(['balance', 'history', 'debit', 'credit', 'link', 'receipt']);
 
 export function buildScanWebAppUrl(baseUrl: string, params: ScanWebAppParams) {
   const url = new URL(baseUrl);

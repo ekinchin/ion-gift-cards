@@ -8,6 +8,7 @@ import type {
   Customer,
   CustomerIdentity,
   Transaction,
+  TransactionReceipt,
 } from '../src/types/index.ts';
 
 const now = new Date('2026-06-25T10:00:00.000Z');
@@ -45,6 +46,7 @@ function makeUseCases() {
   const tokens = new Map<string, CardTransferToken>();
   const transfers: unknown[] = [];
   const transactions = new Map<string, Transaction[]>();
+  const receipts = new Map<string, TransactionReceipt>();
 
   const cardRepo = {
     async findByCode(code: string) {
@@ -67,6 +69,13 @@ function makeUseCases() {
   const txRepo = {
     async findByCardId(cardId: string) {
       return transactions.get(cardId) ?? [];
+    },
+  };
+  const receiptRepo = {
+    async findByTransactionIds(transactionIds: string[]) {
+      return transactionIds
+        .map((transactionId) => receipts.get(transactionId))
+        .filter(Boolean);
     },
   };
   const customerRepo = {
@@ -138,10 +147,11 @@ function makeUseCases() {
     async (callback) => callback({}),
     () => now,
     () => 'transfer-token',
-    () => 'ION-PERSONAL0001'
+    () => 'ION-PERSONAL0001',
+    receiptRepo
   );
 
-  return { useCases, cards, owners, tokens, transfers, transactions };
+  return { useCases, cards, owners, tokens, transfers, transactions, receipts };
 }
 
 test('createPersonalCard creates a zero-balance card and links it to the customer', async () => {
@@ -291,6 +301,120 @@ test('getHistoryByCode allows public history for unowned cards', async () => {
 
   assert.equal(result.card.id, 'card-1');
   assert.equal(result.transactions.length, 1);
+});
+
+test('getOwnedHistory includes customer-safe receipt summaries', async () => {
+  const { useCases, cards, owners, transactions, receipts } = makeUseCases();
+  const card = makeCard();
+  cards.set(card.id, card);
+  owners.set(card.id, { card_id: card.id, customer_id: 'customer-1', linked_at: now });
+  transactions.set(card.id, [
+    {
+      id: 'tx-create',
+      card_id: card.id,
+      type: 'CREATE',
+      amount: 1000,
+      balance_after: 1000,
+      description: null,
+      operator_id: 'operator-1',
+      created_at: now,
+    },
+    {
+      id: 'tx-debit',
+      card_id: card.id,
+      type: 'DEBIT',
+      amount: 100,
+      balance_after: 900,
+      description: null,
+      operator_id: 'operator-1',
+      created_at: now,
+    },
+    {
+      id: 'tx-credit',
+      card_id: card.id,
+      type: 'CREDIT',
+      amount: 200,
+      balance_after: 1100,
+      description: null,
+      operator_id: 'operator-1',
+      created_at: now,
+    },
+  ]);
+  receipts.set('tx-create', {
+    id: 'receipt-create',
+    transaction_id: 'tx-create',
+    raw_qr_payload: 'raw-create',
+    receipt_url: 'https://example.test/create',
+    fiscal_fn: null,
+    fiscal_fd: null,
+    fiscal_fp: null,
+    fiscal_operation_type: null,
+    fiscal_fingerprint: null,
+    receipt_issued_at: null,
+    receipt_total: null,
+    receipt_inn: null,
+    verification_status: 'pending_verification',
+    verification_error: null,
+    skip_reason: null,
+    skip_comment: null,
+    created_by_operator_id: 'operator-1',
+    created_at: now,
+    verified_at: null,
+  });
+  receipts.set('tx-debit', {
+    id: 'receipt-debit',
+    transaction_id: 'tx-debit',
+    raw_qr_payload: 'raw-debit',
+    receipt_url: 'https://example.test/debit',
+    fiscal_fn: null,
+    fiscal_fd: null,
+    fiscal_fp: null,
+    fiscal_operation_type: null,
+    fiscal_fingerprint: null,
+    receipt_issued_at: null,
+    receipt_total: null,
+    receipt_inn: null,
+    verification_status: 'pending_verification',
+    verification_error: null,
+    skip_reason: null,
+    skip_comment: null,
+    created_by_operator_id: 'operator-1',
+    created_at: now,
+    verified_at: null,
+  });
+  receipts.set('tx-credit', {
+    id: 'receipt-credit',
+    transaction_id: 'tx-credit',
+    raw_qr_payload: null,
+    receipt_url: null,
+    fiscal_fn: null,
+    fiscal_fd: null,
+    fiscal_fp: null,
+    fiscal_operation_type: null,
+    fiscal_fingerprint: null,
+    receipt_issued_at: null,
+    receipt_total: null,
+    receipt_inn: null,
+    verification_status: 'skipped',
+    verification_error: null,
+    skip_reason: 'technical_error',
+    skip_comment: 'internal note',
+    created_by_operator_id: 'operator-1',
+    created_at: now,
+    verified_at: null,
+  });
+
+  const result = await useCases.getOwnedHistory('customer-1');
+
+  assert.equal(result.transactions[0]!.receipt, undefined);
+  assert.deepEqual(result.transactions[1]!.receipt, {
+    status: 'pending_verification',
+    receiptUrl: 'https://example.test/debit',
+  });
+  assert.deepEqual(result.transactions[2]!.receipt, {
+    status: 'skipped',
+    receiptUrl: undefined,
+  });
 });
 
 test('getHistoryByCode allows history for the card owner', async () => {

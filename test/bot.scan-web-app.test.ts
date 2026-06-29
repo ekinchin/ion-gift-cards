@@ -43,6 +43,18 @@ test('parseScanWebAppData accepts scanned link payload without amount', () => {
   });
 });
 
+test('parseScanWebAppData accepts scanned receipt payload', () => {
+  const payload = parseScanWebAppData(JSON.stringify({
+    action: 'receipt',
+    code: 't=20260629T1200&s=500.00&fn=123&fd=456&fp=789&n=1',
+  }));
+
+  assert.deepEqual(payload, {
+    action: 'receipt',
+    code: 't=20260629T1200&s=500.00&fn=123&fd=456&fp=789&n=1',
+  });
+});
+
 test('parseScanWebAppData rejects invalid scan payloads', () => {
   assert.equal(parseScanWebAppData('not-json'), null);
   assert.equal(parseScanWebAppData(JSON.stringify({ action: 'debit', code: 'CARD-1' })), null);
