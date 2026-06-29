@@ -119,6 +119,11 @@ export function createCardOperationCommandHandler(
       return;
     }
 
+    ctx.session.pendingCardOperation = {
+      action: kind,
+      amount: command.amount,
+      description: command.description,
+    };
     await replyScanPrompt(
       ctx,
       telegramConfig,

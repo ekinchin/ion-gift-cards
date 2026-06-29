@@ -52,6 +52,7 @@ export async function handleMenuButton(
     return false;
   }
 
+  ctx.session.pendingCardOperation = undefined;
   ctx.session.action = getPendingActionForMenuAction(action);
 
   if (action === 'balance') {
@@ -144,6 +145,11 @@ export async function handlePendingMenuAction(
   ctx.session.action = undefined;
 
   if (pending.action === 'debit') {
+    ctx.session.pendingCardOperation = {
+      action: 'debit',
+      amount: pending.amount,
+      description: pending.description,
+    };
     await replyScanPrompt(
       ctx,
       telegramConfig,
@@ -156,6 +162,11 @@ export async function handlePendingMenuAction(
   }
 
   if (pending.action === 'credit') {
+    ctx.session.pendingCardOperation = {
+      action: 'credit',
+      amount: pending.amount,
+      description: pending.description,
+    };
     await replyScanPrompt(
       ctx,
       telegramConfig,

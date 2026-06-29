@@ -4,7 +4,7 @@ import { Bot, session } from 'grammy';
 import type { MyContext, SessionData } from '../src/bot/context.ts';
 import { registerMessageHandlers } from '../src/bot/handlers/messages.ts';
 import { menuButtonLabels } from '../src/bot/menu.ts';
-import { operatorRepository, transactionReceiptService } from '../src/services/index.ts';
+import { cardService, operatorRepository, transactionReceiptService } from '../src/services/index.ts';
 
 const telegramConfig = { mode: 'polling' as const, botToken: 'token', webAppUrl: 'https://example.test/qr' };
 
@@ -176,6 +176,72 @@ test('receipt skip completion restores the operator menu keyboard', async () => 
     ]);
   } finally {
     restoreSkip();
+    restoreOperator();
+  }
+});
+
+test('manual card code after debit scan prompt debits the card', async () => {
+  const { bot, apiCalls } = createTestBot({
+    pendingCardOperation: { action: 'debit', amount: 100, description: 'coffee' },
+  });
+  const restoreOperator = patchMethod(operatorRepository, 'findByTelegramId', async () => ({
+    id: 'operator-1',
+    telegram_id: 1001,
+    name: 'Operator',
+    is_active: true,
+    created_at: new Date('2026-06-30T00:00:00.000Z'),
+  }));
+  const debits: Array<{ code: string; amount: number; operatorId: string; description?: string }> = [];
+  const restoreDebit = patchMethod(cardService, 'debit', async (code, amount, operatorId, description) => {
+    debits.push({ code, amount, operatorId, description });
+    return {
+      card: {
+        id: 'card-1',
+        code,
+        balance: 900,
+        initial_amount: 1000,
+        is_active: true,
+        created_at: new Date('2026-06-30T00:00:00.000Z'),
+      },
+      transaction: {
+        id: 'tx-debit',
+        card_id: 'card-1',
+        type: 'DEBIT',
+        amount,
+        balance_after: 900,
+        description: description ?? null,
+        operator_id: operatorId,
+        created_at: new Date('2026-06-30T00:00:00.000Z'),
+      },
+    };
+  });
+  const restoreBalance = patchMethod(cardService, 'getBalance', async () => {
+    throw new Error('manual debit code must not be handled as a balance lookup');
+  });
+
+  try {
+    await bot.handleUpdate({
+      update_id: 3,
+      message: {
+        message_id: 1,
+        date: 1782777600,
+        chat: { id: 1001, type: 'private', first_name: 'Operator' },
+        from: { id: 1001, is_bot: false, first_name: 'Operator' },
+        text: 'ION-559NRXWWB4MV',
+      },
+    });
+
+    assert.deepEqual(debits, [{
+      code: 'ION-559NRXWWB4MV',
+      amount: 100,
+      operatorId: 'operator-1',
+      description: 'coffee',
+    }]);
+    assert.match(String(apiCalls[0]!.payload.text), /Списано: 100 ₽/);
+    assert.match(String(apiCalls[0]!.payload.text), /Остаток: 900 ₽/);
+  } finally {
+    restoreBalance();
+    restoreDebit();
     restoreOperator();
   }
 });

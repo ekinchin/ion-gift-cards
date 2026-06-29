@@ -29,6 +29,10 @@ export function registerMessageHandlers(bot: Bot<MyContext>, telegramConfig: Tel
       return;
     }
 
+    if (payload.action !== 'receipt') {
+      ctx.session.pendingCardOperation = undefined;
+    }
+
     if (payload.action === 'balance') {
       await replyBalance(ctx, payload.code);
       return;
@@ -105,6 +109,33 @@ export function registerMessageHandlers(bot: Bot<MyContext>, telegramConfig: Tel
     if (code.startsWith('/')) return;
     if (await handleMenuButton(ctx, code, telegramConfig)) return;
     if (await handlePendingMenuAction(ctx, code, telegramConfig)) return;
+
+    if (ctx.session.pendingCardOperation) {
+      const pendingOperation = ctx.session.pendingCardOperation;
+      const operatorId = await requireBotOperator(ctx);
+      if (!operatorId) {
+        return;
+      }
+
+      try {
+        const result = pendingOperation.action === 'debit'
+          ? await cardService.debit(code, pendingOperation.amount, operatorId, pendingOperation.description)
+          : await cardService.credit(code, pendingOperation.amount, operatorId, pendingOperation.description);
+        ctx.session.pendingCardOperation = undefined;
+        if (pendingOperation.action === 'debit') {
+          await ctx.reply(`${userCopy.bot.operations.debited}: ${pendingOperation.amount} ₽\n${userCopy.bot.cards.card}: ${code}\n${userCopy.bot.operations.remaining}: ${result.card.balance} ₽`);
+        } else {
+          await ctx.reply(`${userCopy.bot.operations.credited}: ${pendingOperation.amount} ₽\n${userCopy.bot.cards.card}: ${code}\n${userCopy.bot.cards.balance}: ${result.card.balance} ₽`);
+        }
+        await promptForReceiptAttachment(ctx, telegramConfig, {
+          transactionId: result.transaction.id,
+          operationType: result.transaction.type,
+        });
+      } catch (error) {
+        await ctx.reply(`${userCopy.bot.replies.errorPrefix} ${formatBotErrorMessage(error)}`);
+      }
+      return;
+    }
 
     if (ctx.session.pendingReceipt) {
       const operatorId = await requireBotOperator(ctx);

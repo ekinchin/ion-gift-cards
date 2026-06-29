@@ -7,9 +7,16 @@ export interface PendingReceiptAttachment {
   operationType: TransactionType;
 }
 
+export interface PendingCardOperation {
+  action: 'debit' | 'credit';
+  amount: number;
+  description?: string;
+}
+
 export interface SessionData {
   action?: PendingMenuAction;
   cardCode?: string;
+  pendingCardOperation?: PendingCardOperation;
   pendingReceipt?: PendingReceiptAttachment;
 }
 
