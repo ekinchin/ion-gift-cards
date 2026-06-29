@@ -37,3 +37,11 @@ test('serves Telegram QR scanner Mini App page', async () => {
 
   await app.close();
 });
+
+test('release workflow uploads rendered QR Mini App HTML, not the raw template', () => {
+  const workflow = readFileSync(new URL('../.github/workflows/release-polling-vm.yml', import.meta.url), 'utf-8');
+
+  assert.match(workflow, /node --experimental-strip-types src\/api\/render-qr-mini-app\.ts/);
+  assert.match(workflow, /yc storage s3 cp "\$QR_MINI_APP_HTML"/);
+  assert.doesNotMatch(workflow, /yc storage s3 cp src\/api\/qr-mini-app\.html/);
+});

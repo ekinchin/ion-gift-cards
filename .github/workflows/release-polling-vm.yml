@@ -179,6 +179,7 @@ jobs:
           set -euo pipefail
 
           qr_mini_app_url="https://storage.yandexcloud.net/${YC_QR_MINI_APP_BUCKET}/qr.html"
+          QR_MINI_APP_HTML="${RUNNER_TEMP}/qr-mini-app.html"
 
           if [[ "$WEB_APP_URL" != "$qr_mini_app_url" ]]; then
             printf 'WEB_APP_URL must point to the static QR Mini App object.\n' >&2
@@ -188,7 +189,14 @@ jobs:
             exit 1
           fi
 
-          yc storage s3 cp src/api/qr-mini-app.html "s3://${YC_QR_MINI_APP_BUCKET}/qr.html" \
+          node --experimental-strip-types src/api/render-qr-mini-app.ts "$QR_MINI_APP_HTML"
+
+          if grep -q '__QR_MINI_APP_COPY__' "$QR_MINI_APP_HTML"; then
+            printf 'Rendered QR Mini App still contains the copy placeholder.\n' >&2
+            exit 1
+          fi
+
+          yc storage s3 cp "$QR_MINI_APP_HTML" "s3://${YC_QR_MINI_APP_BUCKET}/qr.html" \
             --acl public-read \
             --content-type 'text/html; charset=utf-8' \
             --cache-control 'no-cache, no-store, must-revalidate'
