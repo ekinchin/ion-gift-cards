@@ -38,6 +38,15 @@ test('parsePendingMenuActionInput parses create amount', () => {
   });
 });
 
+test('parsePendingMenuActionInput parses link code', () => {
+  assert.deepEqual(parsePendingMenuActionInput('link', 'ION-TESTCARD01'), {
+    handled: true,
+    ok: true,
+    action: 'link',
+    code: 'ION-TESTCARD01',
+  });
+});
+
 test('parsePendingMenuActionInput rejects invalid pending amount', () => {
   assert.deepEqual(parsePendingMenuActionInput('debit', 'abc'), {
     handled: true,
@@ -53,5 +62,5 @@ test('getPendingActionForMenuAction returns only actions that wait for amount te
   assert.equal(getPendingActionForMenuAction('balance'), undefined);
   assert.equal(getPendingActionForMenuAction('history'), undefined);
   assert.equal(getPendingActionForMenuAction('mycards'), undefined);
-  assert.equal(getPendingActionForMenuAction('link'), undefined);
+  assert.equal(getPendingActionForMenuAction('link'), 'link');
 });

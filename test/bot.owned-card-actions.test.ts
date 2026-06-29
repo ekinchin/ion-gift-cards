@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import type { Card, Transaction } from '../src/types/index.ts';
 import { cardOwnershipService, operatorRepository } from '../src/services/index.ts';
-import { handleMenuButton } from '../src/bot/handlers/menu-handlers.ts';
+import { handleMenuButton, handlePendingMenuAction } from '../src/bot/handlers/menu-handlers.ts';
 import { createLinkCommandHandler } from '../src/bot/handlers/commands/link.ts';
 import { unlinkCommandHandler } from '../src/bot/handlers/commands/unlink.ts';
 import { menuButtonLabels } from '../src/bot/menu.ts';
@@ -145,6 +145,39 @@ test('link command without a code shows the existing card instead of a scan prom
     assert.match(ctx.photos[0]!.caption!, /уже есть карта/i);
     assert.match(ctx.photos[0]!.caption!, /ION-TESTCARD01/);
   } finally {
+    restoreList();
+    restoreResolve();
+  }
+});
+
+test('menu link manually entered code links the card instead of showing public balance', async () => {
+  const card = makeCard();
+  const ctx = makeContext();
+  const restoreResolve = patchMethod(cardOwnershipService, 'resolveCustomer', async () => ({
+    customer: { id: 'customer-1' },
+    identity: {},
+  }));
+  const restoreList = patchMethod(cardOwnershipService, 'listCards', async () => []);
+  const restoreLink = patchMethod(cardOwnershipService, 'linkCard', async (customerId, code) => ({
+    ...card,
+    code,
+    balance: customerId === 'customer-1' ? card.balance : 0,
+  }));
+
+  try {
+    const menuHandled = await handleMenuButton(ctx as never, menuButtonLabels.link, telegramConfig);
+    assert.equal(menuHandled, true);
+    assert.equal(ctx.session.action, 'link');
+
+    const pendingHandled = await handlePendingMenuAction(ctx as never, card.code, telegramConfig);
+
+    assert.equal(pendingHandled, true);
+    assert.equal(ctx.session.action, undefined);
+    assert.match(ctx.replies.at(-1)!.text, /Карта привязана/);
+    assert.match(ctx.replies.at(-1)!.text, new RegExp(card.code));
+    assert.match(ctx.replies.at(-1)!.text, new RegExp(String(card.balance)));
+  } finally {
+    restoreLink();
     restoreList();
     restoreResolve();
   }

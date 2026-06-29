@@ -1,6 +1,6 @@
 import type { MenuAction } from './menu.ts';
 
-export type PendingMenuAction = 'debit' | 'credit' | 'create';
+export type PendingMenuAction = 'debit' | 'credit' | 'create' | 'link';
 
 type PendingMenuActionInputResult =
   | { handled: false }
@@ -17,6 +17,12 @@ type PendingMenuActionInputResult =
       ok: true;
       action: 'create';
       amount: number;
+    }
+  | {
+      handled: true;
+      ok: true;
+      action: 'link';
+      code: string;
     };
 
 export function parsePendingMenuActionInput(
@@ -25,6 +31,10 @@ export function parsePendingMenuActionInput(
 ): PendingMenuActionInputResult {
   if (!action) {
     return { handled: false };
+  }
+
+  if (action === 'link') {
+    return { handled: true, ok: true, action, code: text.trim() };
   }
 
   const [amountText, ...descriptionParts] = text.trim().split(/\s+/);
@@ -47,7 +57,7 @@ export function parsePendingMenuActionInput(
 }
 
 export function getPendingActionForMenuAction(action: MenuAction): PendingMenuAction | undefined {
-  if (action === 'debit' || action === 'credit' || action === 'create') {
+  if (action === 'debit' || action === 'credit' || action === 'create' || action === 'link') {
     return action;
   }
 

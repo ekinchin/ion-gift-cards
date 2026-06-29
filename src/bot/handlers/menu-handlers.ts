@@ -14,6 +14,7 @@ import { replyScanPrompt } from './keyboards.ts';
 import { promptForReceiptAttachment } from '../receipt-flow.ts';
 import {
   createPersonalCardForCurrentCustomer,
+  linkCardToCurrentCustomer,
   replyExistingLinkedCard,
   replyMyCards,
   replyOwnedBalance,
@@ -135,6 +136,11 @@ export async function handlePendingMenuAction(
       { action: 'credit', amount: pending.amount, description: pending.description },
       userCopy.bot.prompts.creditManualFallback
     );
+    return true;
+  }
+
+  if (pending.action === 'link') {
+    await linkCardToCurrentCustomer(ctx, pending.code);
     return true;
   }
 

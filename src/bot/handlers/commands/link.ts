@@ -13,6 +13,7 @@ export function createLinkCommandHandler(telegramConfig: TelegramConfig) {
       if (await replyExistingLinkedCard(ctx)) {
         return;
       }
+      ctx.session.action = 'link';
       await replyScanPrompt(
         ctx,
         telegramConfig,
