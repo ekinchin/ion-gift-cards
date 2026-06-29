@@ -28,20 +28,23 @@ function scanButtonText(action: ScanAction) {
 
 export function scanKeyboard(
   telegramConfig: TelegramConfig,
-  params: ScanWebAppParams = { action: 'balance' }
+  params: ScanWebAppParams = { action: 'balance' },
+  isOperator = false
 ) {
   if (!telegramConfig.webAppUrl) {
     return undefined;
   }
 
-  return new Keyboard().webApp(
+  const keyboard = new Keyboard().webApp(
     scanButtonText(params.action),
     buildScanWebAppUrl(telegramConfig.webAppUrl, params)
-  ).resized().oneTime();
+  ).row();
+
+  return addMainMenuButtons(keyboard, isOperator).resized().oneTime();
 }
 
-export function mainMenuKeyboard(isOperator = false) {
-  const keyboard = new Keyboard()
+function addMainMenuButtons(keyboard: Keyboard, isOperator: boolean) {
+  keyboard
     .text(menuButtonLabels.balance)
     .text(menuButtonLabels.history)
     .row()
@@ -52,7 +55,7 @@ export function mainMenuKeyboard(isOperator = false) {
     .text(menuButtonLabels.unlink);
 
   if (!isOperator) {
-    return keyboard.resized();
+    return keyboard;
   }
 
   return keyboard
@@ -60,8 +63,11 @@ export function mainMenuKeyboard(isOperator = false) {
     .text(menuButtonLabels.debit)
     .text(menuButtonLabels.credit)
     .row()
-    .text(menuButtonLabels.create)
-    .resized();
+    .text(menuButtonLabels.create);
+}
+
+export function mainMenuKeyboard(isOperator = false) {
+  return addMainMenuButtons(new Keyboard(), isOperator).resized();
 }
 
 export async function replyScanPrompt(
@@ -69,9 +75,10 @@ export async function replyScanPrompt(
   telegramConfig: TelegramConfig,
   message: string,
   params: ScanWebAppParams,
-  fallback: string
+  fallback: string,
+  isOperatorMenu = false
 ) {
-  const keyboard = scanKeyboard(telegramConfig, params);
+  const keyboard = scanKeyboard(telegramConfig, params, isOperatorMenu);
   if (!keyboard) {
     await ctx.reply(`${userCopy.bot.replies.scanNotConfiguredPrefix} ${fallback}`);
     return;

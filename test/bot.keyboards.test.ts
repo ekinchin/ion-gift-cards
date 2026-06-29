@@ -46,12 +46,48 @@ test('scanKeyboard uses a reply Web App button so Telegram sends web_app_data', 
   );
 
   assert.equal('inline_keyboard' in keyboard!, false);
-  assert.deepEqual(keyboard?.keyboard, [[{
+  assert.deepEqual(keyboard?.keyboard[0], [{
     text: 'Сканировать QR для привязки',
     web_app: {
       url: 'https://example.test/qr?action=link',
     },
-  }]]);
+  }]);
   assert.equal(keyboard?.resize_keyboard, true);
   assert.equal(keyboard?.one_time_keyboard, true);
+});
+
+test('scanKeyboard keeps customer menu buttons below the scan button', () => {
+  const keyboard = scanKeyboard(
+    { mode: 'polling', botToken: 'token', webAppUrl: 'https://example.test/qr' },
+    { action: 'link' }
+  );
+
+  assert.deepEqual(keyboard?.keyboard.slice(1).flat().map((button) => button.text), [
+    menuButtonLabels.balance,
+    menuButtonLabels.history,
+    menuButtonLabels.mycards,
+    menuButtonLabels.createPersonal,
+    menuButtonLabels.link,
+    menuButtonLabels.unlink,
+  ]);
+});
+
+test('scanKeyboard keeps operator menu buttons below the scan button', () => {
+  const keyboard = scanKeyboard(
+    { mode: 'polling', botToken: 'token', webAppUrl: 'https://example.test/qr' },
+    { action: 'debit', amount: 500 },
+    true
+  );
+
+  assert.deepEqual(keyboard?.keyboard.slice(1).flat().map((button) => button.text), [
+    menuButtonLabels.balance,
+    menuButtonLabels.history,
+    menuButtonLabels.mycards,
+    menuButtonLabels.createPersonal,
+    menuButtonLabels.link,
+    menuButtonLabels.unlink,
+    menuButtonLabels.debit,
+    menuButtonLabels.credit,
+    menuButtonLabels.create,
+  ]);
 });

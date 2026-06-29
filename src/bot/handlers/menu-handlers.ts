@@ -123,7 +123,8 @@ export async function handlePendingMenuAction(
       telegramConfig,
       `${userCopy.bot.prompts.debitScanPrefix} ${pending.amount} ₽:`,
       { action: 'debit', amount: pending.amount, description: pending.description },
-      userCopy.bot.prompts.debitManualFallback
+      userCopy.bot.prompts.debitManualFallback,
+      true
     );
     return true;
   }
@@ -134,7 +135,8 @@ export async function handlePendingMenuAction(
       telegramConfig,
       `${userCopy.bot.prompts.creditScanPrefix} ${pending.amount} ₽:`,
       { action: 'credit', amount: pending.amount, description: pending.description },
-      userCopy.bot.prompts.creditManualFallback
+      userCopy.bot.prompts.creditManualFallback,
+      true
     );
     return true;
   }

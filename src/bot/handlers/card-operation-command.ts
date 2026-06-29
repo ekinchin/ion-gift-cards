@@ -124,7 +124,8 @@ export function createCardOperationCommandHandler(
       telegramConfig,
       copy.scanMessage(command.amount),
       { action: kind, amount: command.amount, description: command.description },
-      copy.scanFallback
+      copy.scanFallback,
+      true
     );
   };
 }

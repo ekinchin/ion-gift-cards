@@ -63,6 +63,7 @@ export async function promptForReceiptAttachment(
       userCopy.bot.prompts.receiptSkipReasons,
     ].join('\n'),
     { action: 'receipt' },
-    userCopy.bot.prompts.receiptManualFallback
+    userCopy.bot.prompts.receiptManualFallback,
+    true
   );
 }
