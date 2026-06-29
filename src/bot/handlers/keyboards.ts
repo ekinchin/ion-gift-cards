@@ -1,5 +1,6 @@
 import { InlineKeyboard, Keyboard } from 'grammy';
 import type { TelegramConfig } from '../../configuration/configuration-service.ts';
+import { userCopy } from '../../copy.ts';
 import type { MyContext } from '../context.ts';
 import { menuButtonLabels } from '../menu.ts';
 import {
@@ -11,17 +12,17 @@ import {
 function scanButtonText(action: ScanAction) {
   switch (action) {
     case 'history':
-      return 'Сканировать QR для истории';
+      return userCopy.bot.scanButtons.history;
     case 'debit':
-      return 'Сканировать QR для списания';
+      return userCopy.bot.scanButtons.debit;
     case 'credit':
-      return 'Сканировать QR для пополнения';
+      return userCopy.bot.scanButtons.credit;
     case 'link':
-      return 'Сканировать QR для привязки';
+      return userCopy.bot.scanButtons.link;
     case 'receipt':
-      return 'Сканировать QR чека';
+      return userCopy.bot.scanButtons.receipt;
     case 'balance':
-      return 'Сканировать QR для баланса';
+      return userCopy.bot.scanButtons.balance;
   }
 }
 
@@ -72,7 +73,7 @@ export async function replyScanPrompt(
 ) {
   const keyboard = scanKeyboard(telegramConfig, params);
   if (!keyboard) {
-    await ctx.reply(`❌ Сканирование QR не настроено. ${fallback}`);
+    await ctx.reply(`${userCopy.bot.replies.scanNotConfiguredPrefix} ${fallback}`);
     return;
   }
 

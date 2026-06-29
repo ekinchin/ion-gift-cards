@@ -1,6 +1,8 @@
+import { userCopy } from '../../copy.ts';
 import { cardOwnershipService, cardService } from '../../services/index.ts';
 import { replyWithCardQr } from '../card-qr.ts';
 import type { MyContext } from '../context.ts';
+import { formatBotErrorMessage } from '../error-copy.ts';
 import { resolveBotActor } from './access.ts';
 import type { TransactionWithReceipt } from '../../types/index.ts';
 
@@ -9,30 +11,25 @@ function formatReceiptSummary(tx: TransactionWithReceipt) {
     return '';
   }
 
-  const labelByStatus = {
-    verified: 'Чек подтвержден',
-    pending_verification: 'Чек ожидает проверки',
-    failed: 'Чек не прошел проверку',
-    skipped: 'Чек не приложен',
-  };
-  const label = labelByStatus[tx.receipt.status];
-  return tx.receipt.receiptUrl ? `\n   🧾 ${label}: ${tx.receipt.receiptUrl}` : `\n   🧾 ${label}`;
+  const label = userCopy.bot.receipts.historyStatusLabels[tx.receipt.status];
+  return tx.receipt.receiptUrl
+    ? `\n   ${userCopy.bot.receipts.icon} ${label}: ${tx.receipt.receiptUrl}`
+    : `\n   ${userCopy.bot.receipts.icon} ${label}`;
 }
 
 export async function replyBalance(ctx: MyContext, code: string) {
   try {
     const { balance } = await cardService.getBalance(code);
-    await ctx.reply(`💳 Карта: ${code}\n💰 Баланс: ${balance} ₽`);
+    await ctx.reply(`${userCopy.bot.cards.card}: ${code}\n${userCopy.bot.cards.balance}: ${balance} ₽`);
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Ошибка';
-    await ctx.reply(`❌ ${message}`);
+    await ctx.reply(`${userCopy.bot.replies.errorPrefix} ${formatBotErrorMessage(error)}`);
   }
 }
 
 export async function resolveCurrentCustomer(ctx: MyContext) {
   const from = ctx.from;
   if (!from) {
-    await ctx.reply('❌ Не удалось определить аккаунт пользователя');
+    await ctx.reply(userCopy.bot.replies.accountUnknown);
     return null;
   }
 
@@ -52,12 +49,12 @@ export async function replyMyCards(ctx: MyContext) {
 
   const cards = await cardOwnershipService.listCards(customer.id);
   if (cards.length === 0) {
-    await ctx.reply('У вас пока нет карты. Создайте её командой /create_my_card или привяжите существующую командой /link <код>.');
+    await ctx.reply(userCopy.bot.replies.noCardsWithHint);
     return;
   }
 
   const card = cards[0]!;
-  await replyWithCardQr(ctx, '🎟️ Ваша карта', card);
+  await replyWithCardQr(ctx, userCopy.bot.cardQr.yourCard, card);
 }
 
 export async function replyExistingLinkedCard(ctx: MyContext): Promise<boolean> {
@@ -70,7 +67,7 @@ export async function replyExistingLinkedCard(ctx: MyContext): Promise<boolean> 
     return false;
   }
 
-  await replyWithCardQr(ctx, 'ℹ️ У вас уже есть карта', card);
+  await replyWithCardQr(ctx, userCopy.bot.cardQr.existingCard, card);
   return true;
 }
 
@@ -80,11 +77,10 @@ export async function createPersonalCardForCurrentCustomer(ctx: MyContext) {
 
   try {
     const { card, created } = await cardOwnershipService.createPersonalCard(customer.id);
-    const title = created ? '✅ Ваша карта создана' : 'ℹ️ У вас уже есть карта';
+    const title = created ? userCopy.bot.cardQr.personalCreated : userCopy.bot.cardQr.existingCard;
     await replyWithCardQr(ctx, title, card);
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Ошибка';
-    await ctx.reply(`❌ ${message}`);
+    await ctx.reply(`${userCopy.bot.replies.errorPrefix} ${formatBotErrorMessage(error)}`);
   }
 }
 
@@ -95,13 +91,12 @@ export async function replyOwnedBalance(ctx: MyContext, code?: string) {
   try {
     const { card, balance } = await cardOwnershipService.getOwnedBalance(customer.id, code);
     if (code) {
-      await ctx.reply(`💳 Карта: ${card.code}\n💰 Баланс: ${balance} ₽`);
+      await ctx.reply(`${userCopy.bot.cards.card}: ${card.code}\n${userCopy.bot.cards.balance}: ${balance} ₽`);
       return;
     }
-    await replyWithCardQr(ctx, '💳 Ваша карта', { ...card, balance });
+    await replyWithCardQr(ctx, userCopy.bot.cardQr.currentCard, { ...card, balance });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Ошибка';
-    await ctx.reply(`❌ ${message}`);
+    await ctx.reply(`${userCopy.bot.replies.errorPrefix} ${formatBotErrorMessage(error)}`);
   }
 }
 
@@ -112,18 +107,17 @@ export async function replyOwnedHistory(ctx: MyContext, code?: string) {
   try {
     const { card, transactions } = await cardOwnershipService.getOwnedHistory(customer.id, code);
     if (transactions.length === 0) {
-      await ctx.reply(`💳 Карта: ${card.code}\n📋 История пуста`);
+      await ctx.reply(`${userCopy.bot.cards.card}: ${card.code}\n${userCopy.bot.replies.historyEmpty}`);
       return;
     }
     const lines = transactions.slice(0, 10).map((tx) => {
       const sign = tx.type === 'DEBIT' ? '-' : '+';
-      const emoji = tx.type === 'DEBIT' ? '🔴' : '🟢';
+      const emoji = tx.type === 'DEBIT' ? userCopy.bot.operations.debitSign : userCopy.bot.operations.creditSign;
       return `${emoji} ${sign}${tx.amount} ₽ → ${tx.balance_after} ₽${formatReceiptSummary(tx)}`;
     });
-    await ctx.reply(`💳 Карта: ${card.code}\n📋 Последние операции:\n\n${lines.join('\n')}`);
+    await ctx.reply(`${userCopy.bot.cards.card}: ${card.code}\n${userCopy.bot.replies.recentOperations}\n\n${lines.join('\n')}`);
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Ошибка';
-    await ctx.reply(`❌ ${message}`);
+    await ctx.reply(`${userCopy.bot.replies.errorPrefix} ${formatBotErrorMessage(error)}`);
   }
 }
 
@@ -133,10 +127,9 @@ export async function linkCardToCurrentCustomer(ctx: MyContext, code: string) {
 
   try {
     const card = await cardOwnershipService.linkCard(customer.id, code);
-    await ctx.reply(`✅ Карта привязана\n💳 Карта: ${card.code}\n💰 Баланс: ${card.balance} ₽`);
+    await ctx.reply(`${userCopy.bot.operations.linked}\n${userCopy.bot.cards.card}: ${card.code}\n${userCopy.bot.cards.balance}: ${card.balance} ₽`);
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Ошибка';
-    await ctx.reply(`❌ ${message}`);
+    await ctx.reply(`${userCopy.bot.replies.errorPrefix} ${formatBotErrorMessage(error)}`);
   }
 }
 
@@ -146,10 +139,9 @@ export async function unlinkCardFromCurrentCustomer(ctx: MyContext, code: string
 
   try {
     const card = await cardOwnershipService.unlinkCard(customer.id, code);
-    await replyWithCardQr(ctx, '✅ Карта отвязана', card);
+    await replyWithCardQr(ctx, userCopy.bot.cardQr.unlinked, card);
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Ошибка';
-    await ctx.reply(`❌ ${message}`);
+    await ctx.reply(`${userCopy.bot.replies.errorPrefix} ${formatBotErrorMessage(error)}`);
   }
 }
 
@@ -159,10 +151,9 @@ export async function unlinkCurrentCardFromCurrentCustomer(ctx: MyContext) {
 
   try {
     const card = await cardOwnershipService.unlinkCurrentCard(customer.id);
-    await replyWithCardQr(ctx, '✅ Карта отвязана', card);
+    await replyWithCardQr(ctx, userCopy.bot.cardQr.unlinked, card);
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Ошибка';
-    await ctx.reply(`❌ ${message}`);
+    await ctx.reply(`${userCopy.bot.replies.errorPrefix} ${formatBotErrorMessage(error)}`);
   }
 }
 
@@ -177,17 +168,16 @@ export async function replyHistory(ctx: MyContext, code: string) {
 
     const { card, transactions } = await cardOwnershipService.getHistoryByCode(code, actor);
     if (transactions.length === 0) {
-      await ctx.reply(`💳 Карта: ${card.code}\n📋 История пуста`);
+      await ctx.reply(`${userCopy.bot.cards.card}: ${card.code}\n${userCopy.bot.replies.historyEmpty}`);
       return;
     }
     const lines = transactions.slice(0, 10).map((tx) => {
       const sign = tx.type === 'DEBIT' ? '-' : '+';
-      const emoji = tx.type === 'DEBIT' ? '🔴' : '🟢';
+      const emoji = tx.type === 'DEBIT' ? userCopy.bot.operations.debitSign : userCopy.bot.operations.creditSign;
       return `${emoji} ${sign}${tx.amount} ₽ → ${tx.balance_after} ₽${formatReceiptSummary(tx)}`;
     });
-    await ctx.reply(`💳 Карта: ${card.code}\n📋 Последние операции:\n\n${lines.join('\n')}`);
+    await ctx.reply(`${userCopy.bot.cards.card}: ${card.code}\n${userCopy.bot.replies.recentOperations}\n\n${lines.join('\n')}`);
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Ошибка';
-    await ctx.reply(`❌ ${message}`);
+    await ctx.reply(`${userCopy.bot.replies.errorPrefix} ${formatBotErrorMessage(error)}`);
   }
 }

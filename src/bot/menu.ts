@@ -1,14 +1,6 @@
-export const menuButtonLabels = {
-  balance: '💳 Баланс',
-  history: '📋 История',
-  mycards: '🎟️ Моя карта',
-  createPersonal: '➕ Создать мою карту',
-  link: '🔗 Привязать карту',
-  unlink: '⛓️ Отвязать карту',
-  debit: '🔴 Списать',
-  credit: '🟢 Пополнить',
-  create: '➕ Создать подарочную карту',
-} as const;
+import { userCopy } from '../copy.ts';
+
+export const menuButtonLabels = userCopy.bot.menuButtons;
 
 export type MenuAction = keyof typeof menuButtonLabels;
 

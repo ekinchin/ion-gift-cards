@@ -1,5 +1,6 @@
 import type { Bot } from 'grammy';
 import type { TelegramConfig } from '../../configuration/configuration-service.ts';
+import { userCopy } from '../../copy.ts';
 import type { MyContext } from '../context.ts';
 import { createCardOperationCommandHandler } from './card-operation-command.ts';
 import { acceptTransferCommandHandler } from './commands/accept-transfer.ts';
@@ -14,18 +15,18 @@ import { transferCommandHandler } from './commands/transfer.ts';
 import { unlinkCommandHandler } from './commands/unlink.ts';
 
 export const botCommands = [
-  { command: 'start', description: 'Начало работы' },
-  { command: 'balance', description: 'Проверить баланс' },
-  { command: 'my_card', description: 'Моя карта' },
-  { command: 'create_my_card', description: 'Создать мою карту' },
-  { command: 'link', description: 'Привязать карту' },
-  { command: 'unlink', description: 'Отвязать карту' },
-  { command: 'transfer', description: 'Передать карту' },
-  { command: 'accept_transfer', description: 'Принять карту' },
-  { command: 'debit', description: 'Списать сумму' },
-  { command: 'credit', description: 'Пополнить баланс' },
-  { command: 'create_gift_card', description: 'Создать подарочную карту' },
-  { command: 'history', description: 'История операций' },
+  { command: 'start', description: userCopy.bot.commandDescriptions.start },
+  { command: 'balance', description: userCopy.bot.commandDescriptions.balance },
+  { command: 'my_card', description: userCopy.bot.commandDescriptions.myCard },
+  { command: 'create_my_card', description: userCopy.bot.commandDescriptions.createMyCard },
+  { command: 'link', description: userCopy.bot.commandDescriptions.link },
+  { command: 'unlink', description: userCopy.bot.commandDescriptions.unlink },
+  { command: 'transfer', description: userCopy.bot.commandDescriptions.transfer },
+  { command: 'accept_transfer', description: userCopy.bot.commandDescriptions.acceptTransfer },
+  { command: 'debit', description: userCopy.bot.commandDescriptions.debit },
+  { command: 'credit', description: userCopy.bot.commandDescriptions.credit },
+  { command: 'create_gift_card', description: userCopy.bot.commandDescriptions.createGiftCard },
+  { command: 'history', description: userCopy.bot.commandDescriptions.history },
 ];
 
 export function registerCommandHandlers(bot: Bot<MyContext>, telegramConfig: TelegramConfig) {

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Сканирование QR</title>
+  <title></title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <style>
     :root {
@@ -58,14 +58,17 @@
 </head>
 <body>
   <main>
-    <h1>Сканирование QR</h1>
-    <p>Наведите камеру на QR-код сертификата. После распознавания код будет отправлен боту.</p>
-    <button id="scan-button" type="button">Сканировать QR</button>
+    <h1 id="page-title"></h1>
+    <p id="page-description"></p>
+    <button id="scan-button" type="button"></button>
     <div id="result" class="result" hidden></div>
   </main>
 
   <script>
     const tg = window.Telegram?.WebApp;
+    const copy = __QR_MINI_APP_COPY__;
+    const pageTitle = document.getElementById('page-title');
+    const pageDescription = document.getElementById('page-description');
     const button = document.getElementById('scan-button');
     const result = document.getElementById('result');
     const params = new URLSearchParams(window.location.search);
@@ -80,7 +83,7 @@
 
     function sendCodeToBot(code) {
       if (!tg?.sendData) {
-        show('Не удалось отправить код в Telegram.');
+        show(copy.sendFailed);
         return false;
       }
 
@@ -99,17 +102,21 @@
 
     function scan() {
       if (!window.Telegram?.WebApp?.showScanQrPopup) {
-        show('QR-сканер доступен только внутри Telegram.');
+        show(copy.scannerUnavailable);
         return;
       }
 
-      window.Telegram.WebApp.showScanQrPopup({ text: 'Наведите камеру на QR-код сертификата' }, (code) => {
+      window.Telegram.WebApp.showScanQrPopup({ text: copy.scanPopup }, (code) => {
         window.Telegram.WebApp.closeScanQrPopup();
         sendCodeToBot(code);
         return true;
       });
     }
 
+    document.title = copy.title;
+    pageTitle.textContent = copy.title;
+    pageDescription.textContent = copy.description;
+    button.textContent = copy.scanButton;
     tg?.ready();
     tg?.expand();
     button.addEventListener('click', scan);

@@ -1,7 +1,9 @@
 import type { TelegramConfig } from '../../configuration/configuration-service.ts';
+import { userCopy } from '../../copy.ts';
 import { cardService } from '../../services/index.ts';
 import { replyWithCardQr } from '../card-qr.ts';
 import type { MyContext } from '../context.ts';
+import { formatBotErrorMessage } from '../error-copy.ts';
 import { parseMenuButton } from '../menu.ts';
 import {
   getPendingActionForMenuAction,
@@ -58,9 +60,9 @@ export async function handleMenuButton(
     await replyScanPrompt(
       ctx,
       telegramConfig,
-      'Отсканируйте QR-код карты для привязки:',
+      userCopy.bot.prompts.linkScan,
       { action: 'link' },
-      'Укажите код вручную: /link <код>'
+      userCopy.bot.prompts.linkManualFallback
     );
     return true;
   }
@@ -75,7 +77,7 @@ export async function handleMenuButton(
       ctx.session.action = undefined;
       return true;
     }
-    await ctx.reply('Введите сумму для списания: /debit <сумма> [описание]');
+    await ctx.reply(userCopy.bot.prompts.debitAmount);
     return true;
   }
 
@@ -84,7 +86,7 @@ export async function handleMenuButton(
       ctx.session.action = undefined;
       return true;
     }
-    await ctx.reply('Введите сумму для пополнения: /credit <сумма> [описание]');
+    await ctx.reply(userCopy.bot.prompts.creditAmount);
     return true;
   }
 
@@ -93,7 +95,7 @@ export async function handleMenuButton(
     return true;
   }
 
-  await ctx.reply('Введите начальную сумму: /create_gift_card <сумма>');
+  await ctx.reply(userCopy.bot.prompts.createAmount);
   return true;
 }
 
@@ -108,7 +110,7 @@ export async function handlePendingMenuAction(
   }
 
   if (!pending.ok) {
-    await ctx.reply('❌ Некорректная сумма');
+    await ctx.reply(userCopy.bot.replies.invalidAmount);
     return true;
   }
 
@@ -118,9 +120,9 @@ export async function handlePendingMenuAction(
     await replyScanPrompt(
       ctx,
       telegramConfig,
-      `Отсканируйте QR-код карты для списания ${pending.amount} ₽:`,
+      `${userCopy.bot.prompts.debitScanPrefix} ${pending.amount} ₽:`,
       { action: 'debit', amount: pending.amount, description: pending.description },
-      'Укажите код вручную: /debit <код> <сумма> [описание]'
+      userCopy.bot.prompts.debitManualFallback
     );
     return true;
   }
@@ -129,9 +131,9 @@ export async function handlePendingMenuAction(
     await replyScanPrompt(
       ctx,
       telegramConfig,
-      `Отсканируйте QR-код карты для пополнения на ${pending.amount} ₽:`,
+      `${userCopy.bot.prompts.creditScanPrefix} ${pending.amount} ₽:`,
       { action: 'credit', amount: pending.amount, description: pending.description },
-      'Укажите код вручную: /credit <код> <сумма> [описание]'
+      userCopy.bot.prompts.creditManualFallback
     );
     return true;
   }
@@ -143,14 +145,13 @@ export async function handlePendingMenuAction(
 
   try {
     const result = await cardService.createCard(pending.amount, operatorId);
-    await replyWithCardQr(ctx, '✅ Карта создана', result.card);
+    await replyWithCardQr(ctx, userCopy.bot.cardQr.cardCreated, result.card);
     await promptForReceiptAttachment(ctx, telegramConfig, {
       transactionId: result.transaction.id,
       operationType: result.transaction.type,
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Ошибка';
-    await ctx.reply(`❌ ${message}`);
+    await ctx.reply(`${userCopy.bot.replies.errorPrefix} ${formatBotErrorMessage(error)}`);
   }
 
   return true;

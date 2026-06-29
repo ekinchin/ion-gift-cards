@@ -1,5 +1,6 @@
 import { InputFile } from 'grammy';
 import QRCode from 'qrcode';
+import { userCopy } from '../copy.ts';
 import type { MyContext } from './context.ts';
 
 interface CardQrView {
@@ -17,7 +18,7 @@ export async function createCardQrPng(code: string): Promise<Buffer> {
 }
 
 export function formatCardQrCaption(title: string, card: CardQrView): string {
-  return `${title}\n💳 Код: ${card.code}\n💰 Баланс: ${card.balance} ₽`;
+  return `${title}\n${userCopy.bot.cardQr.code}: ${card.code}\n${userCopy.bot.cardQr.balance}: ${card.balance} ₽`;
 }
 
 export async function replyWithCardQr(ctx: MyContext, title: string, card: CardQrView) {

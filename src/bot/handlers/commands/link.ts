@@ -1,5 +1,6 @@
 import type { CommandContext } from 'grammy';
 import type { TelegramConfig } from '../../../configuration/configuration-service.ts';
+import { userCopy } from '../../../copy.ts';
 import type { MyContext } from '../../context.ts';
 import { linkCardToCurrentCustomer, replyExistingLinkedCard } from '../card-replies.ts';
 import { replyScanPrompt } from '../keyboards.ts';
@@ -15,9 +16,9 @@ export function createLinkCommandHandler(telegramConfig: TelegramConfig) {
       await replyScanPrompt(
         ctx,
         telegramConfig,
-        'Отсканируйте QR-код карты для привязки:',
+        userCopy.bot.prompts.linkScan,
         { action: 'link' },
-        'Укажите код вручную: /link <код>'
+        userCopy.bot.prompts.linkManualFallback
       );
       return;
     }

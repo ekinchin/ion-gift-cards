@@ -1,6 +1,8 @@
 import type { CommandContext } from 'grammy';
+import { userCopy } from '../../../copy.ts';
 import { cardOwnershipService } from '../../../services/index.ts';
 import type { MyContext } from '../../context.ts';
+import { formatBotErrorMessage } from '../../error-copy.ts';
 import { resolveCurrentCustomer } from '../card-replies.ts';
 
 export async function transferCommandHandler(ctx: CommandContext<MyContext>) {
@@ -13,7 +15,7 @@ export async function transferCommandHandler(ctx: CommandContext<MyContext>) {
     const cards = await cardOwnershipService.listCards(customer.id);
     const card = cards[0];
     if (!card) {
-      await ctx.reply('❌ У вас пока нет привязанной карты');
+      await ctx.reply(userCopy.bot.replies.noLinkedCard);
       return;
     }
     code = card.code;
@@ -22,12 +24,11 @@ export async function transferCommandHandler(ctx: CommandContext<MyContext>) {
   try {
     const { card, token, expiresAt } = await cardOwnershipService.startTransfer(customer.id, code);
     await ctx.reply(
-      `🔐 Передача карты: ${card.code}\n` +
-      `Перешлите получателю команду:\n/accept_transfer ${token}\n\n` +
-      `Код действует до ${expiresAt.toLocaleString('ru-RU')}.`
+      `${userCopy.bot.operations.transfer}: ${card.code}\n` +
+      `${userCopy.bot.operations.transferForwardCommand}\n/accept_transfer ${token}\n\n` +
+      `${userCopy.bot.operations.transferExpiresAt} ${expiresAt.toLocaleString('ru-RU')}.`
     );
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Ошибка';
-    await ctx.reply(`❌ ${message}`);
+    await ctx.reply(`${userCopy.bot.replies.errorPrefix} ${formatBotErrorMessage(error)}`);
   }
 }

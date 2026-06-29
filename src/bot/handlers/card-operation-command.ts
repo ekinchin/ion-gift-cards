@@ -1,7 +1,9 @@
 import type { CommandContext } from 'grammy';
 import type { TelegramConfig } from '../../configuration/configuration-service.ts';
+import { userCopy } from '../../copy.ts';
 import { cardService } from '../../services/index.ts';
 import type { MyContext } from '../context.ts';
+import { formatBotErrorMessage } from '../error-copy.ts';
 import type { ScanAction } from '../scan-web-app.ts';
 import { parsePositiveAmount } from './amount.ts';
 import { requireBotOperator } from './access.ts';
@@ -38,16 +40,16 @@ interface CardOperationCopy {
 
 const copyByKind: Record<CardOperationKind, CardOperationCopy> = {
   debit: {
-    usage: '❌ Использование: /debit <код> <сумма> [описание] или /debit <сумма> [описание] для сканирования QR',
-    scanMessage: (amount) => `Отсканируйте QR-код карты для списания ${amount} ₽:`,
-    scanFallback: 'Укажите код вручную: /debit <код> <сумма> [описание]',
-    success: (amount, code, balance) => `✅ Списано: ${amount} ₽\n💳 Карта: ${code}\n💰 Остаток: ${balance} ₽`,
+    usage: userCopy.bot.usage.debit,
+    scanMessage: (amount) => `${userCopy.bot.prompts.debitScanPrefix} ${amount} ₽:`,
+    scanFallback: userCopy.bot.prompts.debitManualFallback,
+    success: (amount, code, balance) => `${userCopy.bot.operations.debited}: ${amount} ₽\n${userCopy.bot.cards.card}: ${code}\n${userCopy.bot.operations.remaining}: ${balance} ₽`,
   },
   credit: {
-    usage: '❌ Использование: /credit <код> <сумма> [описание] или /credit <сумма> [описание] для сканирования QR',
-    scanMessage: (amount) => `Отсканируйте QR-код карты для пополнения на ${amount} ₽:`,
-    scanFallback: 'Укажите код вручную: /credit <код> <сумма> [описание]',
-    success: (amount, code, balance) => `✅ Пополнено: ${amount} ₽\n💳 Карта: ${code}\n💰 Баланс: ${balance} ₽`,
+    usage: userCopy.bot.usage.credit,
+    scanMessage: (amount) => `${userCopy.bot.prompts.creditScanPrefix} ${amount} ₽:`,
+    scanFallback: userCopy.bot.prompts.creditManualFallback,
+    success: (amount, code, balance) => `${userCopy.bot.operations.credited}: ${amount} ₽\n${userCopy.bot.cards.card}: ${code}\n${userCopy.bot.cards.balance}: ${balance} ₽`,
   },
 };
 
@@ -97,7 +99,7 @@ export function createCardOperationCommandHandler(
 
     const command = parseCardOperationCommand(ctx.match);
     if (!command.ok) {
-      await ctx.reply(command.reason === 'missing' ? copy.usage : '❌ Некорректная сумма');
+      await ctx.reply(command.reason === 'missing' ? copy.usage : userCopy.bot.replies.invalidAmount);
       return;
     }
 
@@ -112,8 +114,7 @@ export function createCardOperationCommandHandler(
           operationType: result.transaction.type,
         });
       } catch (error) {
-        const message = error instanceof Error ? error.message : 'Ошибка';
-        await ctx.reply(`❌ ${message}`);
+        await ctx.reply(`${userCopy.bot.replies.errorPrefix} ${formatBotErrorMessage(error)}`);
       }
       return;
     }
