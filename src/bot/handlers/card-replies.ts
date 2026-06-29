@@ -1,4 +1,5 @@
 import { userCopy } from '../../copy.ts';
+import { AppError } from '../../application/errors.ts';
 import { cardOwnershipService, cardService } from '../../services/index.ts';
 import { replyWithCardQr } from '../card-qr.ts';
 import type { MyContext } from '../context.ts';
@@ -15,6 +16,10 @@ function formatReceiptSummary(tx: TransactionWithReceipt) {
   return tx.receipt.receiptUrl
     ? `\n   ${userCopy.bot.receipts.icon} ${label}: ${tx.receipt.receiptUrl}`
     : `\n   ${userCopy.bot.receipts.icon} ${label}`;
+}
+
+function isNoOwnedCardsError(error: unknown) {
+  return error instanceof AppError && error.code === 'NO_OWNED_CARDS';
 }
 
 export async function replyBalance(ctx: MyContext, code: string) {
@@ -84,7 +89,11 @@ export async function createPersonalCardForCurrentCustomer(ctx: MyContext) {
   }
 }
 
-export async function replyOwnedBalance(ctx: MyContext, code?: string) {
+export async function replyOwnedBalance(
+  ctx: MyContext,
+  code?: string,
+  options: { onNoOwnedCards?: () => Promise<void> } = {}
+) {
   const customer = await resolveCurrentCustomer(ctx);
   if (!customer) return;
 
@@ -96,11 +105,19 @@ export async function replyOwnedBalance(ctx: MyContext, code?: string) {
     }
     await replyWithCardQr(ctx, userCopy.bot.cardQr.currentCard, { ...card, balance });
   } catch (error) {
+    if (!code && options.onNoOwnedCards && isNoOwnedCardsError(error)) {
+      await options.onNoOwnedCards();
+      return;
+    }
     await ctx.reply(`${userCopy.bot.replies.errorPrefix} ${formatBotErrorMessage(error)}`);
   }
 }
 
-export async function replyOwnedHistory(ctx: MyContext, code?: string) {
+export async function replyOwnedHistory(
+  ctx: MyContext,
+  code?: string,
+  options: { onNoOwnedCards?: () => Promise<void> } = {}
+) {
   const customer = await resolveCurrentCustomer(ctx);
   if (!customer) return;
 
@@ -117,6 +134,10 @@ export async function replyOwnedHistory(ctx: MyContext, code?: string) {
     });
     await ctx.reply(`${userCopy.bot.cards.card}: ${card.code}\n${userCopy.bot.replies.recentOperations}\n\n${lines.join('\n')}`);
   } catch (error) {
+    if (!code && options.onNoOwnedCards && isNoOwnedCardsError(error)) {
+      await options.onNoOwnedCards();
+      return;
+    }
     await ctx.reply(`${userCopy.bot.replies.errorPrefix} ${formatBotErrorMessage(error)}`);
   }
 }

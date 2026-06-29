@@ -15,12 +15,30 @@ import { promptForReceiptAttachment } from '../receipt-flow.ts';
 import {
   createPersonalCardForCurrentCustomer,
   linkCardToCurrentCustomer,
+  replyBalance,
   replyExistingLinkedCard,
+  replyHistory,
   replyMyCards,
   replyOwnedBalance,
   replyOwnedHistory,
   unlinkCurrentCardFromCurrentCustomer,
 } from './card-replies.ts';
+import type { ScanAction } from '../scan-web-app.ts';
+
+async function promptForMenuCardScan(
+  ctx: MyContext,
+  telegramConfig: TelegramConfig,
+  action: Extract<ScanAction, 'balance' | 'history'>
+) {
+  ctx.session.action = action;
+  await replyScanPrompt(
+    ctx,
+    telegramConfig,
+    action === 'balance' ? userCopy.bot.prompts.balanceScan : userCopy.bot.prompts.historyScan,
+    { action },
+    action === 'balance' ? userCopy.bot.prompts.balanceManualFallback : userCopy.bot.prompts.historyManualFallback
+  );
+}
 
 export async function handleMenuButton(
   ctx: MyContext,
@@ -35,12 +53,16 @@ export async function handleMenuButton(
   ctx.session.action = getPendingActionForMenuAction(action);
 
   if (action === 'balance') {
-    await replyOwnedBalance(ctx);
+    await replyOwnedBalance(ctx, undefined, {
+      onNoOwnedCards: () => promptForMenuCardScan(ctx, telegramConfig, 'balance'),
+    });
     return true;
   }
 
   if (action === 'history') {
-    await replyOwnedHistory(ctx);
+    await replyOwnedHistory(ctx, undefined, {
+      onNoOwnedCards: () => promptForMenuCardScan(ctx, telegramConfig, 'history'),
+    });
     return true;
   }
 
@@ -146,20 +168,32 @@ export async function handlePendingMenuAction(
     return true;
   }
 
-  const operatorId = await requireBotOperator(ctx);
-  if (!operatorId) {
+  if (pending.action === 'balance') {
+    await replyBalance(ctx, pending.code);
     return true;
   }
 
-  try {
-    const result = await cardService.createCard(pending.amount, operatorId);
-    await replyWithCardQr(ctx, userCopy.bot.cardQr.cardCreated, result.card);
-    await promptForReceiptAttachment(ctx, telegramConfig, {
-      transactionId: result.transaction.id,
-      operationType: result.transaction.type,
-    });
-  } catch (error) {
-    await ctx.reply(`${userCopy.bot.replies.errorPrefix} ${formatBotErrorMessage(error)}`);
+  if (pending.action === 'history') {
+    await replyHistory(ctx, pending.code);
+    return true;
+  }
+
+  if (pending.action === 'create') {
+    const operatorId = await requireBotOperator(ctx);
+    if (!operatorId) {
+      return true;
+    }
+
+    try {
+      const result = await cardService.createCard(pending.amount, operatorId);
+      await replyWithCardQr(ctx, userCopy.bot.cardQr.cardCreated, result.card);
+      await promptForReceiptAttachment(ctx, telegramConfig, {
+        transactionId: result.transaction.id,
+        operationType: result.transaction.type,
+      });
+    } catch (error) {
+      await ctx.reply(`${userCopy.bot.replies.errorPrefix} ${formatBotErrorMessage(error)}`);
+    }
   }
 
   return true;

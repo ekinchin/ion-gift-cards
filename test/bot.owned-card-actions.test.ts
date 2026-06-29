@@ -1,11 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import type { Card, Transaction } from '../src/types/index.ts';
-import { cardOwnershipService, operatorRepository } from '../src/services/index.ts';
+import { cardOwnershipService, cardService, operatorRepository } from '../src/services/index.ts';
 import { handleMenuButton, handlePendingMenuAction } from '../src/bot/handlers/menu-handlers.ts';
 import { createLinkCommandHandler } from '../src/bot/handlers/commands/link.ts';
 import { unlinkCommandHandler } from '../src/bot/handlers/commands/unlink.ts';
 import { menuButtonLabels } from '../src/bot/menu.ts';
+import { NoOwnedCardsError } from '../src/application/errors.ts';
 
 const now = new Date('2026-06-28T10:00:00.000Z');
 const telegramConfig = { token: 'token', webAppUrl: 'https://example.com/qr' };
@@ -108,6 +109,132 @@ test('menu history shows the linked card history without prompting for QR', asyn
   } finally {
     restoreHistory();
     restoreResolve();
+  }
+});
+
+test('menu balance prompts to scan a card when there is no linked card', async () => {
+  const ctx = makeContext();
+  const restoreResolve = patchMethod(cardOwnershipService, 'resolveCustomer', async () => ({
+    customer: { id: 'customer-1' },
+    identity: {},
+  }));
+  const restoreBalance = patchMethod(cardOwnershipService, 'getOwnedBalance', async () => {
+    throw new NoOwnedCardsError();
+  });
+
+  try {
+    const handled = await handleMenuButton(ctx as never, menuButtonLabels.balance, telegramConfig);
+
+    assert.equal(handled, true);
+    assert.equal(ctx.replies.length, 1);
+    assert.match(ctx.replies[0]!.text, /Отсканируйте QR-код карты/);
+    const replyMarkup = (ctx.replies[0]!.options as { reply_markup: {
+      keyboard: unknown;
+      resize_keyboard: boolean;
+      one_time_keyboard: boolean;
+    } }).reply_markup;
+    assert.deepEqual(replyMarkup.keyboard, [
+      [{
+        text: 'Сканировать QR для баланса',
+        web_app: { url: 'https://example.com/qr?action=balance' },
+      }],
+      [{ text: menuButtonLabels.balance }, { text: menuButtonLabels.history }],
+      [{ text: menuButtonLabels.mycards }, { text: menuButtonLabels.createPersonal }],
+      [{ text: menuButtonLabels.link }, { text: menuButtonLabels.unlink }],
+    ]);
+    assert.equal(replyMarkup.resize_keyboard, true);
+    assert.equal(replyMarkup.one_time_keyboard, true);
+  } finally {
+    restoreBalance();
+    restoreResolve();
+  }
+});
+
+test('menu history prompts to scan a card when there is no linked card', async () => {
+  const ctx = makeContext();
+  const restoreResolve = patchMethod(cardOwnershipService, 'resolveCustomer', async () => ({
+    customer: { id: 'customer-1' },
+    identity: {},
+  }));
+  const restoreHistory = patchMethod(cardOwnershipService, 'getOwnedHistory', async () => {
+    throw new NoOwnedCardsError();
+  });
+
+  try {
+    const handled = await handleMenuButton(ctx as never, menuButtonLabels.history, telegramConfig);
+
+    assert.equal(handled, true);
+    assert.equal(ctx.replies.length, 1);
+    assert.match(ctx.replies[0]!.text, /Отсканируйте QR-код карты/);
+    const replyMarkup = (ctx.replies[0]!.options as { reply_markup: {
+      keyboard: unknown;
+      resize_keyboard: boolean;
+      one_time_keyboard: boolean;
+    } }).reply_markup;
+    assert.deepEqual(replyMarkup.keyboard, [
+      [{
+        text: 'Сканировать QR для истории',
+        web_app: { url: 'https://example.com/qr?action=history' },
+      }],
+      [{ text: menuButtonLabels.balance }, { text: menuButtonLabels.history }],
+      [{ text: menuButtonLabels.mycards }, { text: menuButtonLabels.createPersonal }],
+      [{ text: menuButtonLabels.link }, { text: menuButtonLabels.unlink }],
+    ]);
+    assert.equal(replyMarkup.resize_keyboard, true);
+    assert.equal(replyMarkup.one_time_keyboard, true);
+  } finally {
+    restoreHistory();
+    restoreResolve();
+  }
+});
+
+test('manual code after balance scan prompt shows public balance', async () => {
+  const ctx = makeContext();
+  ctx.session.action = 'balance';
+  const restoreBalance = patchMethod(cardService, 'getBalance', async (code) => ({
+    card: makeCard({ code }),
+    balance: 750,
+  }));
+
+  try {
+    const handled = await handlePendingMenuAction(ctx as never, 'ION-MANUAL01', telegramConfig);
+
+    assert.equal(handled, true);
+    assert.equal(ctx.session.action, undefined);
+    assert.equal(ctx.replies.length, 1);
+    assert.match(ctx.replies[0]!.text, /ION-MANUAL01/);
+    assert.match(ctx.replies[0]!.text, /750/);
+  } finally {
+    restoreBalance();
+  }
+});
+
+test('manual code after history scan prompt shows authorized public history', async () => {
+  const card = makeCard({ code: 'ION-HISTORY01' });
+  const ctx = makeContext();
+  ctx.session.action = 'history';
+  const restoreOperator = patchMethod(operatorRepository, 'findByTelegramId', async () => null);
+  const restoreResolve = patchMethod(cardOwnershipService, 'resolveCustomer', async () => ({
+    customer: { id: 'customer-1' },
+    identity: {},
+  }));
+  const restoreHistory = patchMethod(cardOwnershipService, 'getHistoryByCode', async () => ({
+    card,
+    transactions: [makeTransaction({ card_id: card.id })],
+  }));
+
+  try {
+    const handled = await handlePendingMenuAction(ctx as never, card.code, telegramConfig);
+
+    assert.equal(handled, true);
+    assert.equal(ctx.session.action, undefined);
+    assert.equal(ctx.replies.length, 1);
+    assert.match(ctx.replies[0]!.text, /Последние операции/);
+    assert.match(ctx.replies[0]!.text, /ION-HISTORY01/);
+  } finally {
+    restoreHistory();
+    restoreResolve();
+    restoreOperator();
   }
 });
 
