@@ -14,7 +14,7 @@ import { startCommandHandler } from './commands/start.ts';
 import { transferCommandHandler } from './commands/transfer.ts';
 import { unlinkCommandHandler } from './commands/unlink.ts';
 
-export const botCommands = [
+export const customerBotCommands = [
   { command: 'start', description: userCopy.bot.commandDescriptions.start },
   { command: 'balance', description: userCopy.bot.commandDescriptions.balance },
   { command: 'my_card', description: userCopy.bot.commandDescriptions.myCard },
@@ -23,11 +23,17 @@ export const botCommands = [
   { command: 'unlink', description: userCopy.bot.commandDescriptions.unlink },
   { command: 'transfer', description: userCopy.bot.commandDescriptions.transfer },
   { command: 'accept_transfer', description: userCopy.bot.commandDescriptions.acceptTransfer },
+  { command: 'history', description: userCopy.bot.commandDescriptions.history },
+];
+
+export const operatorBotCommands = [
+  ...customerBotCommands,
   { command: 'debit', description: userCopy.bot.commandDescriptions.debit },
   { command: 'credit', description: userCopy.bot.commandDescriptions.credit },
   { command: 'create_gift_card', description: userCopy.bot.commandDescriptions.createGiftCard },
-  { command: 'history', description: userCopy.bot.commandDescriptions.history },
 ];
+
+export const botCommands = customerBotCommands;
 
 export function registerCommandHandlers(bot: Bot<MyContext>, telegramConfig: TelegramConfig) {
   bot.command('start', startCommandHandler);
