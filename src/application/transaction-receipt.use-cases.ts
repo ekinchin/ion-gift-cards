@@ -14,7 +14,12 @@ import {
   validateReceiptForTransaction,
   validateReceiptSkip,
 } from './receipt-verification.ts';
-import { CardNotFoundError, ReceiptAlreadyAttachedError } from './errors.ts';
+import {
+  CardNotFoundError,
+  ReceiptAlreadyAttachedError,
+  ReceiptSkipCommentRequiredError,
+  ReceiptSkipReasonInvalidError,
+} from './errors.ts';
 
 export interface AttachReceiptInput {
   transactionId: string;
@@ -100,7 +105,13 @@ export class TransactionReceiptUseCases {
       comment: input.comment,
     });
     if (verification.status === 'failed') {
-      throw new Error(verification.error);
+      if (verification.error === 'Unsupported receipt skip reason') {
+        throw new ReceiptSkipReasonInvalidError();
+      }
+      if (verification.error === 'Receipt skip reason other requires a comment') {
+        throw new ReceiptSkipCommentRequiredError();
+      }
+      throw new ReceiptSkipReasonInvalidError();
     }
 
     return this.#receiptRepo.create({

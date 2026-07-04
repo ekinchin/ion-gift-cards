@@ -1,3 +1,5 @@
+import { InvalidReceiptQrError } from './errors.ts';
+
 export interface ParsedFiscalReceiptQr {
   raw: string;
   issuedAt: Date;
@@ -21,7 +23,7 @@ function getSearchParams(raw: string): URLSearchParams {
 function requireParam(params: URLSearchParams, name: string) {
   const value = params.get(name);
   if (!value) {
-    throw new Error('Invalid fiscal receipt QR');
+    throw new InvalidReceiptQrError();
   }
   return value;
 }
@@ -29,7 +31,7 @@ function requireParam(params: URLSearchParams, name: string) {
 function parseIssuedAt(value: string) {
   const match = value.match(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})?$/);
   if (!match) {
-    throw new Error('Invalid fiscal receipt QR');
+    throw new InvalidReceiptQrError();
   }
 
   const [, year, month, day, hour, minute, second = '00'] = match;
@@ -47,12 +49,12 @@ export function parseFiscalReceiptQr(raw: string): ParsedFiscalReceiptQr {
   const params = getSearchParams(raw);
   const fiscalFd = params.get('fd') || params.get('i');
   if (!fiscalFd) {
-    throw new Error('Invalid fiscal receipt QR');
+    throw new InvalidReceiptQrError();
   }
 
   const total = Number(requireParam(params, 's'));
   if (!Number.isFinite(total) || total <= 0) {
-    throw new Error('Invalid fiscal receipt QR');
+    throw new InvalidReceiptQrError();
   }
 
   const inn = params.get('inn') || undefined;

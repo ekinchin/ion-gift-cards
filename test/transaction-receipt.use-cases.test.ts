@@ -126,6 +126,21 @@ test('attachReceipt rejects duplicate fiscal receipts', async () => {
   );
 });
 
+test('attachReceipt rejects invalid fiscal receipt QR with application error', async () => {
+  const { useCases } = makeUseCases();
+
+  await assert.rejects(
+    () => useCases.attachReceipt({
+      transactionId: 'tx-1',
+      rawQrPayload: 'ION-CARD-CODE',
+      operatorId: 'operator-1',
+    }),
+    (error) => error instanceof AppError
+      && error.code === 'INVALID_RECEIPT_QR'
+      && error.statusCode === 400
+  );
+});
+
 test('skipReceipt saves fixed skip reason and comment', async () => {
   const { useCases } = makeUseCases();
 
@@ -139,4 +154,34 @@ test('skipReceipt saves fixed skip reason and comment', async () => {
   assert.equal(receipt.verification_status, 'skipped');
   assert.equal(receipt.skip_reason, 'other');
   assert.equal(receipt.skip_comment, 'cashier note');
+});
+
+test('skipReceipt rejects other without comment with application error', async () => {
+  const { useCases } = makeUseCases();
+
+  await assert.rejects(
+    () => useCases.skipReceipt({
+      transactionId: 'tx-1',
+      reason: 'other',
+      operatorId: 'operator-1',
+    }),
+    (error) => error instanceof AppError
+      && error.code === 'RECEIPT_SKIP_COMMENT_REQUIRED'
+      && error.statusCode === 400
+  );
+});
+
+test('skipReceipt rejects unsupported skip reason with application error', async () => {
+  const { useCases } = makeUseCases();
+
+  await assert.rejects(
+    () => useCases.skipReceipt({
+      transactionId: 'tx-1',
+      reason: 'unsupported' as never,
+      operatorId: 'operator-1',
+    }),
+    (error) => error instanceof AppError
+      && error.code === 'RECEIPT_SKIP_REASON_INVALID'
+      && error.statusCode === 400
+  );
 });

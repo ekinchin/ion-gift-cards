@@ -112,3 +112,21 @@ export class ReceiptAlreadyAttachedError extends AppError {
     super('Receipt is already attached to another transaction', 'RECEIPT_ALREADY_ATTACHED', 409);
   }
 }
+
+export class InvalidReceiptQrError extends AppError {
+  constructor() {
+    super('Invalid fiscal receipt QR', 'INVALID_RECEIPT_QR', 400);
+  }
+}
+
+export class ReceiptSkipCommentRequiredError extends AppError {
+  constructor() {
+    super('Receipt skip reason other requires a comment', 'RECEIPT_SKIP_COMMENT_REQUIRED', 400);
+  }
+}
+
+export class ReceiptSkipReasonInvalidError extends AppError {
+  constructor() {
+    super('Unsupported receipt skip reason', 'RECEIPT_SKIP_REASON_INVALID', 400);
+  }
+}
