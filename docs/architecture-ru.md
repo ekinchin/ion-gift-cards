@@ -42,3 +42,5 @@ Application use cases должны работать с `customer.id`. Telegram-�
 Для аккаунтов с привязанной картой персональные действия бота используют эту карту по умолчанию: balance, history, my card, unlink, transfer и link status. Операторские cash-register действия, такие как debit и credit, по-прежнему требуют явный QR scan или публичный код. Public balance lookup остаётся bearer-style, но история owned card доступна только владельцу или оператору.
 
 Подробный принятый дизайн задокументирован в `docs/superpowers/specs/2026-06-25-card-ownership-transfer-design.md`.
+
+Текущие команды Telegram-бота, reply-клавиатуры, условия показа кнопок и ограничения операторских сценариев описаны в `docs/telegram-bot-ru.md`.
