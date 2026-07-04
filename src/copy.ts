@@ -9,8 +9,8 @@ export const userCopy = {
       createPersonal: '➕ Создать мою карту',
       link: '🔗 Привязать карту',
       unlink: '⛓️ Отвязать карту',
-      debit: '🔴 Списать',
-      credit: '🟢 Пополнить',
+      debit: '➖ Списать',
+      credit: '➕ Пополнить',
       create: '➕ Создать подарочную карту',
     },
     commandDescriptions: {
@@ -127,8 +127,8 @@ export const userCopy = {
       notAttachedDuplicate: 'Чек не прикреплен: уже был отсканирован и привязан к другой операции',
     },
     operations: {
-      debitSign: '🔴',
-      creditSign: '🟢',
+      debitSign: '➖',
+      creditSign: '➕',
       debited: '✅ Списано',
       credited: '✅ Пополнено',
       remaining: '💰 Остаток',

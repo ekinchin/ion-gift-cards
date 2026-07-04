@@ -139,9 +139,8 @@ export async function replyOwnedHistory(
       return;
     }
     const lines = transactions.slice(0, 10).map((tx) => {
-      const sign = tx.type === 'DEBIT' ? '-' : '+';
-      const emoji = tx.type === 'DEBIT' ? userCopy.bot.operations.debitSign : userCopy.bot.operations.creditSign;
-      return `${emoji} ${sign}${tx.amount} ₽ → ${tx.balance_after} ₽${formatReceiptSummary(tx)}`;
+      const sign = tx.type === 'DEBIT' ? userCopy.bot.operations.debitSign : userCopy.bot.operations.creditSign;
+      return `${sign} ${tx.amount} ₽ → ${tx.balance_after} ₽${formatReceiptSummary(tx)}`;
     });
     await ctx.reply(`${userCopy.bot.cards.card}: ${card.code}\n${userCopy.bot.replies.recentOperations}\n\n${lines.join('\n')}`);
   } catch (error) {
@@ -204,9 +203,8 @@ export async function replyHistory(ctx: MyContext, code: string) {
       return;
     }
     const lines = transactions.slice(0, 10).map((tx) => {
-      const sign = tx.type === 'DEBIT' ? '-' : '+';
-      const emoji = tx.type === 'DEBIT' ? userCopy.bot.operations.debitSign : userCopy.bot.operations.creditSign;
-      return `${emoji} ${sign}${tx.amount} ₽ → ${tx.balance_after} ₽${formatReceiptSummary(tx)}`;
+      const sign = tx.type === 'DEBIT' ? userCopy.bot.operations.debitSign : userCopy.bot.operations.creditSign;
+      return `${sign} ${tx.amount} ₽ → ${tx.balance_after} ₽${formatReceiptSummary(tx)}`;
     });
     await ctx.reply(`${userCopy.bot.cards.card}: ${card.code}\n${userCopy.bot.replies.recentOperations}\n\n${lines.join('\n')}`);
   } catch (error) {

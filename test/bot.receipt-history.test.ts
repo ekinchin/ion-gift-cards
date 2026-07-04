@@ -80,6 +80,9 @@ test('replyOwnedHistory shows receipt status and link without operator-only skip
   try {
     await replyOwnedHistory(ctx as never);
 
+    assert.match(ctx.replies[0]!.text, /➖ 100 ₽ → 900 ₽/);
+    assert.match(ctx.replies[0]!.text, /➕ 200 ₽ → 1100 ₽/);
+    assert.doesNotMatch(ctx.replies[0]!.text, /🔴|🟢/);
     assert.match(ctx.replies[0]!.text, /Чек ожидает проверки/);
     assert.match(ctx.replies[0]!.text, /https:\/\/example\.test\/debit/);
     assert.match(ctx.replies[0]!.text, /Чек не приложен/);
