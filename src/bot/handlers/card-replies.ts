@@ -5,6 +5,7 @@ import { replyWithCardQr } from '../card-qr.ts';
 import type { MyContext } from '../context.ts';
 import { formatBotErrorMessage } from '../error-copy.ts';
 import { resolveBotActor } from './access.ts';
+import type { MainMenuOptions } from './keyboards.ts';
 import type { TransactionWithReceipt } from '../../types/index.ts';
 
 function formatReceiptSummary(tx: TransactionWithReceipt) {
@@ -60,6 +61,16 @@ export async function replyMyCards(ctx: MyContext) {
 
   const card = cards[0]!;
   await replyWithCardQr(ctx, userCopy.bot.cardQr.yourCard, card);
+}
+
+export async function getCurrentCustomerMenuOptions(ctx: MyContext): Promise<MainMenuOptions> {
+  const customer = await resolveCurrentCustomer(ctx);
+  if (!customer) {
+    return { hasLinkedCard: false };
+  }
+
+  const cards = await cardOwnershipService.listCards(customer.id);
+  return { hasLinkedCard: cards.length > 0 };
 }
 
 export async function replyExistingLinkedCard(ctx: MyContext): Promise<boolean> {

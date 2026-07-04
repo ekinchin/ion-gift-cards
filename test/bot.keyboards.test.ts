@@ -10,8 +10,8 @@ function keyboardLabels(keyboard: ReturnType<typeof mainMenuKeyboard>) {
   return keyboard.build().flat().map((button) => button.text);
 }
 
-test('mainMenuKeyboard hides operator actions for customers', () => {
-  const labels = keyboardLabels(mainMenuKeyboard(false));
+test('mainMenuKeyboard shows link and create actions for customers without a card', () => {
+  const labels = keyboardLabels(mainMenuKeyboard(false, { hasLinkedCard: false }));
 
   assert.deepEqual(labels, [
     menuButtonLabels.balance,
@@ -19,6 +19,16 @@ test('mainMenuKeyboard hides operator actions for customers', () => {
     menuButtonLabels.mycards,
     menuButtonLabels.createPersonal,
     menuButtonLabels.link,
+  ]);
+});
+
+test('mainMenuKeyboard hides link and create actions for customers with a card', () => {
+  const labels = keyboardLabels(mainMenuKeyboard(false, { hasLinkedCard: true }));
+
+  assert.deepEqual(labels, [
+    menuButtonLabels.balance,
+    menuButtonLabels.history,
+    menuButtonLabels.mycards,
     menuButtonLabels.unlink,
   ]);
 });
@@ -56,10 +66,12 @@ test('scanKeyboard uses a reply Web App button so Telegram sends web_app_data', 
   assert.equal(keyboard?.one_time_keyboard, true);
 });
 
-test('scanKeyboard keeps customer menu buttons below the scan button', () => {
+test('scanKeyboard keeps customer menu buttons for users without a card below the scan button', () => {
   const keyboard = scanKeyboard(
     { mode: 'polling', botToken: 'token', webAppUrl: 'https://example.test/qr' },
-    { action: 'link' }
+    { action: 'link' },
+    false,
+    { hasLinkedCard: false }
   );
 
   assert.deepEqual(keyboard?.keyboard.slice(1).flat().map((button) => button.text), [
@@ -68,6 +80,21 @@ test('scanKeyboard keeps customer menu buttons below the scan button', () => {
     menuButtonLabels.mycards,
     menuButtonLabels.createPersonal,
     menuButtonLabels.link,
+  ]);
+});
+
+test('scanKeyboard keeps customer menu buttons for users with a card below the scan button', () => {
+  const keyboard = scanKeyboard(
+    { mode: 'polling', botToken: 'token', webAppUrl: 'https://example.test/qr' },
+    { action: 'balance' },
+    false,
+    { hasLinkedCard: true }
+  );
+
+  assert.deepEqual(keyboard?.keyboard.slice(1).flat().map((button) => button.text), [
+    menuButtonLabels.balance,
+    menuButtonLabels.history,
+    menuButtonLabels.mycards,
     menuButtonLabels.unlink,
   ]);
 });

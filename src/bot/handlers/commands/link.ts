@@ -19,7 +19,9 @@ export function createLinkCommandHandler(telegramConfig: TelegramConfig) {
         telegramConfig,
         userCopy.bot.prompts.linkScan,
         { action: 'link' },
-        userCopy.bot.prompts.linkManualFallback
+        userCopy.bot.prompts.linkManualFallback,
+        false,
+        { hasLinkedCard: false }
       );
       return;
     }

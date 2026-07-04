@@ -1,6 +1,7 @@
 import type { CommandContext } from 'grammy';
 import { userCopy } from '../../../copy.ts';
 import type { MyContext } from '../../context.ts';
+import { getCurrentCustomerMenuOptions } from '../card-replies.ts';
 import { mainMenuKeyboard } from '../keyboards.ts';
 import { getOperator } from '../operators.ts';
 
@@ -13,9 +14,10 @@ export async function startCommandHandler(ctx: CommandContext<MyContext>) {
       { reply_markup: mainMenuKeyboard(true) }
     );
   } else {
+    const menuOptions = await getCurrentCustomerMenuOptions(ctx);
     await ctx.reply(
       userCopy.bot.start.customer,
-      { reply_markup: mainMenuKeyboard(false) }
+      { reply_markup: mainMenuKeyboard(false, menuOptions) }
     );
   }
 }

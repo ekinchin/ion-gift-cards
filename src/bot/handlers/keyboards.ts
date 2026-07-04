@@ -9,6 +9,10 @@ import {
   type ScanWebAppParams,
 } from '../scan-web-app.ts';
 
+export type MainMenuOptions = {
+  hasLinkedCard?: boolean;
+};
+
 function scanButtonText(action: ScanAction) {
   switch (action) {
     case 'history':
@@ -29,7 +33,8 @@ function scanButtonText(action: ScanAction) {
 export function scanKeyboard(
   telegramConfig: TelegramConfig,
   params: ScanWebAppParams = { action: 'balance' },
-  isOperator = false
+  isOperator = false,
+  options: MainMenuOptions = {}
 ) {
   if (!telegramConfig.webAppUrl) {
     return undefined;
@@ -40,19 +45,32 @@ export function scanKeyboard(
     buildScanWebAppUrl(telegramConfig.webAppUrl, params)
   ).row();
 
-  return addMainMenuButtons(keyboard, isOperator).resized().oneTime();
+  return addMainMenuButtons(keyboard, isOperator, options).resized().oneTime();
 }
 
-function addMainMenuButtons(keyboard: Keyboard, isOperator: boolean) {
+function addMainMenuButtons(keyboard: Keyboard, isOperator: boolean, options: MainMenuOptions) {
   keyboard
     .text(menuButtonLabels.balance)
     .text(menuButtonLabels.history)
     .row()
-    .text(menuButtonLabels.mycards)
-    .text(menuButtonLabels.createPersonal)
-    .row()
-    .text(menuButtonLabels.link)
-    .text(menuButtonLabels.unlink);
+    .text(menuButtonLabels.mycards);
+
+  if (!isOperator && options.hasLinkedCard === true) {
+    keyboard
+      .row()
+      .text(menuButtonLabels.unlink);
+  } else if (!isOperator && options.hasLinkedCard === false) {
+    keyboard
+      .text(menuButtonLabels.createPersonal)
+      .row()
+      .text(menuButtonLabels.link);
+  } else {
+    keyboard
+      .text(menuButtonLabels.createPersonal)
+      .row()
+      .text(menuButtonLabels.link)
+      .text(menuButtonLabels.unlink);
+  }
 
   if (!isOperator) {
     return keyboard;
@@ -66,8 +84,8 @@ function addMainMenuButtons(keyboard: Keyboard, isOperator: boolean) {
     .text(menuButtonLabels.create);
 }
 
-export function mainMenuKeyboard(isOperator = false) {
-  return addMainMenuButtons(new Keyboard(), isOperator).resized();
+export function mainMenuKeyboard(isOperator = false, options: MainMenuOptions = {}) {
+  return addMainMenuButtons(new Keyboard(), isOperator, options).resized();
 }
 
 export async function replyScanPrompt(
@@ -76,9 +94,10 @@ export async function replyScanPrompt(
   message: string,
   params: ScanWebAppParams,
   fallback: string,
-  isOperatorMenu = false
+  isOperatorMenu = false,
+  options: MainMenuOptions = {}
 ) {
-  const keyboard = scanKeyboard(telegramConfig, params, isOperatorMenu);
+  const keyboard = scanKeyboard(telegramConfig, params, isOperatorMenu, options);
   if (!keyboard) {
     await ctx.reply(`${userCopy.bot.replies.scanNotConfiguredPrefix} ${fallback}`);
     return;

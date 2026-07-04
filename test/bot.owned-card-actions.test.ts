@@ -4,6 +4,7 @@ import type { Card, Transaction } from '../src/types/index.ts';
 import { cardOwnershipService, cardService, operatorRepository } from '../src/services/index.ts';
 import { handleMenuButton, handlePendingMenuAction } from '../src/bot/handlers/menu-handlers.ts';
 import { createLinkCommandHandler } from '../src/bot/handlers/commands/link.ts';
+import { startCommandHandler } from '../src/bot/handlers/commands/start.ts';
 import { unlinkCommandHandler } from '../src/bot/handlers/commands/unlink.ts';
 import { menuButtonLabels } from '../src/bot/menu.ts';
 import { NoOwnedCardsError } from '../src/application/errors.ts';
@@ -141,7 +142,7 @@ test('menu balance prompts to scan a card when there is no linked card', async (
       }],
       [{ text: menuButtonLabels.balance }, { text: menuButtonLabels.history }],
       [{ text: menuButtonLabels.mycards }, { text: menuButtonLabels.createPersonal }],
-      [{ text: menuButtonLabels.link }, { text: menuButtonLabels.unlink }],
+      [{ text: menuButtonLabels.link }],
     ]);
     assert.equal(replyMarkup.resize_keyboard, true);
     assert.equal(replyMarkup.one_time_keyboard, true);
@@ -181,12 +182,69 @@ test('menu history prompts to scan a card when there is no linked card', async (
       }],
       [{ text: menuButtonLabels.balance }, { text: menuButtonLabels.history }],
       [{ text: menuButtonLabels.mycards }, { text: menuButtonLabels.createPersonal }],
-      [{ text: menuButtonLabels.link }, { text: menuButtonLabels.unlink }],
+      [{ text: menuButtonLabels.link }],
     ]);
     assert.equal(replyMarkup.resize_keyboard, true);
     assert.equal(replyMarkup.one_time_keyboard, true);
   } finally {
     restoreHistory();
+    restoreResolve();
+    restoreOperator();
+  }
+});
+
+test('start menu for customer without a card shows create and link but hides unlink', async () => {
+  const ctx = makeContext();
+  const restoreOperator = patchMethod(operatorRepository, 'findByTelegramId', async () => null);
+  const restoreResolve = patchMethod(cardOwnershipService, 'resolveCustomer', async () => ({
+    customer: { id: 'customer-1' },
+    identity: {},
+  }));
+  const restoreList = patchMethod(cardOwnershipService, 'listCards', async () => []);
+
+  try {
+    await startCommandHandler(ctx as never);
+
+    const replyMarkup = (ctx.replies[0]!.options as { reply_markup: {
+      keyboard: Array<Array<{ text: string }>>;
+    } }).reply_markup;
+    assert.deepEqual(replyMarkup.keyboard.flat().map((button) => button.text), [
+      menuButtonLabels.balance,
+      menuButtonLabels.history,
+      menuButtonLabels.mycards,
+      menuButtonLabels.createPersonal,
+      menuButtonLabels.link,
+    ]);
+  } finally {
+    restoreList();
+    restoreResolve();
+    restoreOperator();
+  }
+});
+
+test('start menu for customer with a card shows unlink but hides create and link', async () => {
+  const ctx = makeContext();
+  const restoreOperator = patchMethod(operatorRepository, 'findByTelegramId', async () => null);
+  const restoreResolve = patchMethod(cardOwnershipService, 'resolveCustomer', async () => ({
+    customer: { id: 'customer-1' },
+    identity: {},
+  }));
+  const restoreList = patchMethod(cardOwnershipService, 'listCards', async () => [makeCard()]);
+
+  try {
+    await startCommandHandler(ctx as never);
+
+    const replyMarkup = (ctx.replies[0]!.options as { reply_markup: {
+      keyboard: Array<Array<{ text: string }>>;
+    } }).reply_markup;
+    assert.deepEqual(replyMarkup.keyboard.flat().map((button) => button.text), [
+      menuButtonLabels.balance,
+      menuButtonLabels.history,
+      menuButtonLabels.mycards,
+      menuButtonLabels.unlink,
+    ]);
+  } finally {
+    restoreList();
     restoreResolve();
     restoreOperator();
   }

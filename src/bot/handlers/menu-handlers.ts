@@ -38,7 +38,8 @@ async function promptForMenuCardScan(
     action === 'balance' ? userCopy.bot.prompts.balanceScan : userCopy.bot.prompts.historyScan,
     { action },
     action === 'balance' ? userCopy.bot.prompts.balanceManualFallback : userCopy.bot.prompts.historyManualFallback,
-    Boolean(actor.operatorId)
+    Boolean(actor.operatorId),
+    { hasLinkedCard: false }
   );
 }
 
@@ -90,7 +91,8 @@ export async function handleMenuButton(
       userCopy.bot.prompts.linkScan,
       { action: 'link' },
       userCopy.bot.prompts.linkManualFallback,
-      Boolean(actor.operatorId)
+      Boolean(actor.operatorId),
+      { hasLinkedCard: false }
     );
     return true;
   }
