@@ -1,6 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { cardOwnershipService, cardService } from '../../services/index.ts';
-import { resolveApiActor } from '../auth.ts';
+import { cardService } from '../../services/index.ts';
 import {
   type CardCodeParams,
   cardCodeParamsSchema,
@@ -18,22 +17,6 @@ export function registerCardRoutes(app: FastifyInstance) {
     try {
       const { balance } = await cardService.getBalance(code);
       return { code, balance };
-    } catch (error) {
-      return sendError(reply, error);
-    }
-  });
-
-  app.get<{ Params: CardCodeParams }>('/api/cards/:code/history', async (request, reply) => {
-    const params = cardCodeParamsSchema.safeParse(request.params);
-    if (!params.success) {
-      return sendValidationError(reply, params.error);
-    }
-
-    const { code } = params.data;
-    try {
-      const actor = await resolveApiActor(request);
-      const { transactions: history } = await cardOwnershipService.getHistoryByCode(code, actor);
-      return { code, transactions: history };
     } catch (error) {
       return sendError(reply, error);
     }

@@ -2,13 +2,13 @@
 
 The project is a modular monolith.
 
-HTTP API and Telegram bot are adapters. They parse external input, resolve an application `Actor`, and call application use cases.
+HTTP API and Telegram bot are adapters. Telegram parses external input, resolves an application `Actor` where identity matters, and calls application use cases. The current HTTP card API exposes only public balance lookup and does not resolve application identity.
 
 API request validation is implemented with Zod in `src/api/schemas.ts`. Controller-level request body and params types are inferred from the same schemas with `z.infer`, so runtime validation and TypeScript types share one source of truth.
 
 Application use cases own business operations and database transaction boundaries. Card mutations run inside `db.transaction(...)`; debit and credit lock the card row before calculating the new balance.
 
-Authorization rules live in `src/application/card-access-policy.ts`. Adapters resolve identity, but resource access decisions are expressed as actor/action/resource checks in the application layer. This keeps global operator permissions and resource-relative ownership checks out of Telegram and HTTP handlers. The layer is described in `docs/access-control.md`.
+Authorization rules live in `src/application/card-access-policy.ts`. Adapters that handle identity resolve it, but resource access decisions are expressed as actor/action/resource checks in the application layer. This keeps global operator permissions and resource-relative ownership checks out of Telegram handlers. The layer is described in `docs/access-control.md`.
 
 Repositories own Knex queries and never decide business rules.
 

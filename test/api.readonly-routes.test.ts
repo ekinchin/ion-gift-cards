@@ -13,6 +13,7 @@ test('HTTP API does not expose mutating card endpoints', async () => {
     { method: 'DELETE', url: '/api/me/card' },
     { method: 'POST', url: '/api/cards/CARD-1/debit', payload: { amount: 50 } },
     { method: 'POST', url: '/api/cards/CARD-1/credit', payload: { amount: 50 } },
+    { method: 'GET', url: '/api/cards/CARD-1/history' },
   ] as const;
 
   try {

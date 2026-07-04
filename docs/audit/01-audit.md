@@ -64,15 +64,13 @@ Current behavior:
 
 Original finding: operator API routes trusted `operatorId` from request bodies.
 
-Current status: resolved for the current trusted-network model.
+Current status: resolved by removing mutating HTTP card routes.
 
 Current behavior:
 
-- Mutating API routes require `x-operator-telegram-id`.
-- Server resolves the active operator.
-- Request bodies must not include `operatorId`.
-
-Remaining note: `x-operator-telegram-id` is a minimal internal mechanism, not strong public API authentication. Use a stronger auth mechanism before exposing the API outside a trusted network.
+- HTTP card API exposes only public balance lookup.
+- Gift-card creation, debit, and credit are performed through the Telegram bot by active operators.
+- Request bodies cannot provide `operatorId` because mutating HTTP endpoints are not published.
 
 ### Missing API runtime validation
 
@@ -151,25 +149,18 @@ Recommended future improvement:
 
 ### Migration history
 
-The migration runner still executes `.sql` files directly and does not track applied migrations.
+Current status: resolved.
 
-Current mitigation:
+Current behavior:
 
-- The initial migration is idempotent enough for current local/Docker setup through `CREATE TABLE IF NOT EXISTS` and `CREATE INDEX IF NOT EXISTS`.
-
-Recommended future improvement:
-
-- Use Knex migrations, or add a migration history table.
+- The migration runner executes ordered `.sql` files and records applied versions in `schema_migrations`.
+- Already applied migration versions are skipped on later runs.
 
 ### API authentication strength
 
-The current API operator resolver uses `x-operator-telegram-id`.
+Current status: no longer applicable for the current HTTP card API.
 
-Current mitigation:
+Current behavior:
 
-- The server resolves the operator record and no longer trusts body-provided `operatorId`.
-
-Recommended future improvement:
-
-- Replace the header-based resolver with token-based or session-based authentication before public deployment.
-
+- HTTP card API exposes only bearer-style public balance lookup by card code.
+- Private history and operator mutations are available through Telegram bot flows, not through HTTP API.

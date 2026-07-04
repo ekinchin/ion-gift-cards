@@ -2,7 +2,7 @@
 
 The application uses actor-based authorization for card access.
 
-This layer is intentionally separate from Telegram and HTTP adapters. Adapters resolve who is making the request, then application code decides whether that actor can perform an action on a resource.
+This layer is intentionally separate from adapters. Adapters resolve who is making the request, then application code decides whether that actor can perform an action on a resource.
 
 ## Terms
 
@@ -15,7 +15,7 @@ interface Actor {
 }
 ```
 
-An actor can have no identity, a customer identity, an operator identity, or both. Telegram users and HTTP headers are adapter-specific input; they should be converted to `Actor` before access decisions are made.
+An actor can have no identity, a customer identity, an operator identity, or both. Telegram users are adapter-specific input; they should be converted to `Actor` before access decisions are made.
 
 `operator` is a global permission source. Current operators can perform cash-register card operations such as debit, credit, gift-card creation, and owned-card history lookup.
 
@@ -31,7 +31,7 @@ An actor can have no identity, a customer identity, an operator identity, or bot
 
 For Telegram bot requests, `src/bot/handlers/access.ts` resolves operator identity and exposes helpers such as `requireBotOperator`.
 
-For HTTP API requests, `src/api/auth.ts` resolves request headers into an `Actor` with `resolveApiActor`.
+The current HTTP card API exposes only public balance lookup and does not resolve an `Actor`.
 
 Resource decisions live in `src/application/card-access-policy.ts`.
 

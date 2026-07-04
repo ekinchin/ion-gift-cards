@@ -2,7 +2,7 @@
 
 Приложение использует actor-based авторизацию для доступа к картам.
 
-Этот слой намеренно отделён от Telegram и HTTP адаптеров. Адаптеры определяют, кто делает запрос, а application-код решает, может ли этот actor выполнить действие над ресурсом.
+Этот слой намеренно отделён от адаптеров. Адаптеры определяют, кто делает запрос, а application-код решает, может ли этот actor выполнить действие над ресурсом.
 
 ## Термины
 
@@ -15,7 +15,7 @@ interface Actor {
 }
 ```
 
-Actor может быть без идентичности, с customer identity, с operator identity или с обеими сразу. Telegram users и HTTP headers — это adapter-specific ввод; перед проверками доступа они должны быть преобразованы в `Actor`.
+Actor может быть без идентичности, с customer identity, с operator identity или с обеими сразу. Telegram users — это adapter-specific ввод; перед проверками доступа они должны быть преобразованы в `Actor`.
 
 `operator` — глобальный источник прав. Текущие операторы могут выполнять cash-register операции с картами: debit, credit, создание gift card и просмотр истории owned card.
 
@@ -31,7 +31,7 @@ Actor может быть без идентичности, с customer identity,
 
 Для Telegram bot requests `src/bot/handlers/access.ts` определяет operator identity и предоставляет helpers вроде `requireBotOperator`.
 
-Для HTTP API requests `src/api/auth.ts` преобразует request headers в `Actor` через `resolveApiActor`.
+Текущий HTTP API карт публикует только публичную проверку баланса и не преобразует запросы в `Actor`.
 
 Resource decisions живут в `src/application/card-access-policy.ts`.
 
