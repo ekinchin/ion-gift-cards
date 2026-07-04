@@ -7,6 +7,7 @@ import { formatBotErrorMessage } from '../error-copy.ts';
 import { resolveBotActor } from './access.ts';
 import type { MainMenuOptions } from './keyboards.ts';
 import type { TransactionWithReceipt } from '../../types/index.ts';
+import { formatReceiptVerificationError } from '../receipt-flow.ts';
 
 function formatReceiptSummary(tx: TransactionWithReceipt) {
   if (!tx.receipt) {
@@ -14,6 +15,13 @@ function formatReceiptSummary(tx: TransactionWithReceipt) {
   }
 
   const label = userCopy.bot.receipts.historyStatusLabels[tx.receipt.status];
+  const failureReason = tx.receipt.status === 'failed'
+    ? formatReceiptVerificationError(tx.receipt.verificationError)
+    : undefined;
+  if (failureReason) {
+    return `\n   ${userCopy.bot.receipts.icon} ${label}: ${failureReason}`;
+  }
+
   return tx.receipt.receiptUrl
     ? `\n   ${userCopy.bot.receipts.icon} ${label}: ${tx.receipt.receiptUrl}`
     : `\n   ${userCopy.bot.receipts.icon} ${label}`;

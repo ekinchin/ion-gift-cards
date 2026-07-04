@@ -374,8 +374,8 @@ test('getOwnedHistory includes customer-safe receipt summaries', async () => {
     receipt_issued_at: null,
     receipt_total: null,
     receipt_inn: null,
-    verification_status: 'pending_verification',
-    verification_error: null,
+    verification_status: 'failed',
+    verification_error: 'Receipt is older than 60 minutes',
     skip_reason: null,
     skip_comment: null,
     created_by_operator_id: 'operator-1',
@@ -408,8 +408,9 @@ test('getOwnedHistory includes customer-safe receipt summaries', async () => {
 
   assert.equal(result.transactions[0]!.receipt, undefined);
   assert.deepEqual(result.transactions[1]!.receipt, {
-    status: 'pending_verification',
+    status: 'failed',
     receiptUrl: 'https://example.test/debit',
+    verificationError: 'Receipt is older than 60 minutes',
   });
   assert.deepEqual(result.transactions[2]!.receipt, {
     status: 'skipped',

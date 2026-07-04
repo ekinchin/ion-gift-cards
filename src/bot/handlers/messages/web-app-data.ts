@@ -5,7 +5,7 @@ import type { MyContext, PendingReceiptAttachment } from '../../context.ts';
 import { formatBotErrorMessage } from '../../error-copy.ts';
 import { parseScanWebAppData, type ScanAction, type ScanWebAppPayload } from '../../scan-web-app.ts';
 import {
-  formatReceiptVerificationStatus,
+  formatReceiptVerificationResult,
   promptForReceiptAttachment,
 } from '../../receipt-flow.ts';
 import {
@@ -54,7 +54,7 @@ async function handleReceipt(ctx: MyContext, payload: ScanWebAppPayload) {
     });
     ctx.session.pendingReceipt = undefined;
     await ctx.reply(
-      `${userCopy.bot.receipts.saved}: ${formatReceiptVerificationStatus(receipt.verification_status)}`,
+      `${userCopy.bot.receipts.saved}: ${formatReceiptVerificationResult(receipt.verification_status, receipt.verification_error)}`,
       { reply_markup: mainMenuKeyboard(true) }
     );
   } catch (error) {

@@ -119,6 +119,13 @@ export const userCopy = {
       skipped: '✅ Чек пропущен',
       notAttachedPrefix: 'Чек не прикреплен:',
       notAttachedDuplicate: 'Чек не прикреплен: уже был отсканирован и привязан к другой операции',
+      failureReasonPrefix: 'Причина',
+      verificationErrors: {
+        olderThanMinutes: 'чек старше {minutes} минут',
+        innNotAllowed: 'ИНН чека не входит в список разрешенных',
+        totalMismatch: 'сумма чека не совпадает с суммой операции',
+        alreadyAttached: 'чек уже привязан к другой операции',
+      },
     },
     operations: {
       debitSign: '➖',

@@ -46,6 +46,7 @@ export interface TransactionReceipt {
 export interface TransactionReceiptSummary {
   status: ReceiptVerificationStatus;
   receiptUrl?: string;
+  verificationError?: string;
 }
 
 export type TransactionWithReceipt = Transaction & {

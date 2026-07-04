@@ -120,6 +120,68 @@ test('receipt web app completion restores the operator menu keyboard', async () 
   }
 });
 
+test('failed receipt scan shows localized verification reason', async () => {
+  const { bot, apiCalls } = createTestBot({
+    pendingReceipt: { transactionId: 'tx-1', operationType: 'DEBIT' },
+  });
+  const restoreOperator = patchMethod(operatorRepository, 'findByTelegramId', async () => ({
+    id: 'operator-1',
+    telegram_id: 1001,
+    name: 'Operator',
+    is_active: true,
+    created_at: new Date('2026-06-30T00:00:00.000Z'),
+  }));
+  const restoreAttach = patchMethod(transactionReceiptService, 'attachReceipt', async () => ({
+    id: 'receipt-1',
+    transaction_id: 'tx-1',
+    raw_qr_payload: 't=20260629T2254&s=64.99&fn=1&i=1&fp=1&n=1',
+    receipt_url: 'https://example.test/receipt',
+    fiscal_fn: '1',
+    fiscal_fd: '1',
+    fiscal_fp: '1',
+    fiscal_operation_type: '1',
+    fiscal_fingerprint: '1:1:1',
+    receipt_issued_at: new Date('2026-06-29T17:54:00.000Z'),
+    receipt_total: 64.99,
+    receipt_inn: null,
+    verification_status: 'failed',
+    verification_error: 'Receipt is older than 60 minutes',
+    skip_reason: null,
+    skip_comment: null,
+    created_by_operator_id: 'operator-1',
+    created_at: new Date('2026-06-30T00:00:00.000Z'),
+    verified_at: null,
+  }));
+
+  try {
+    await bot.handleUpdate({
+      update_id: 6,
+      message: {
+        message_id: 1,
+        date: 1782777600,
+        chat: { id: 1001, type: 'private', first_name: 'Operator' },
+        from: { id: 1001, is_bot: false, first_name: 'Operator' },
+        web_app_data: {
+          button_text: 'Сканировать QR чека',
+          data: JSON.stringify({ action: 'receipt', code: 't=20260629T2254&s=64.99&fn=1&i=1&fp=1&n=1' }),
+        },
+      },
+    });
+
+    assert.equal(apiCalls.length, 1);
+    assert.equal(
+      apiCalls[0]!.payload.text,
+      [
+        '✅ Чек сохранен: чек не прошел проверку',
+        'Причина: чек старше 60 минут',
+      ].join('\n')
+    );
+  } finally {
+    restoreAttach();
+    restoreOperator();
+  }
+});
+
 test('receipt skip completion restores the operator menu keyboard', async () => {
   const { bot, apiCalls } = createTestBot({
     pendingReceipt: { transactionId: 'tx-1', operationType: 'DEBIT' },

@@ -243,6 +243,7 @@ export class CardOwnershipUseCases {
         receipt: {
           status: receipt.verification_status,
           receiptUrl: receipt.receipt_url || undefined,
+          ...(receipt.verification_error ? { verificationError: receipt.verification_error } : {}),
         },
       };
     });

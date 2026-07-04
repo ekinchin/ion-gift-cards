@@ -47,6 +47,38 @@ export function formatReceiptVerificationStatus(status: keyof typeof userCopy.bo
   return userCopy.bot.receipts.statusLabels[status];
 }
 
+export function formatReceiptVerificationError(error: string | null | undefined) {
+  if (!error) {
+    return undefined;
+  }
+
+  const olderThanMatch = error.match(/^Receipt is older than (\d+) minutes$/);
+  if (olderThanMatch) {
+    return userCopy.bot.receipts.verificationErrors.olderThanMinutes
+      .replace('{minutes}', olderThanMatch[1]!);
+  }
+
+  const messages = new Map<string, string>([
+    ['Receipt INN is not allowed', userCopy.bot.receipts.verificationErrors.innNotAllowed],
+    ['Receipt total must match transaction amount', userCopy.bot.receipts.verificationErrors.totalMismatch],
+    ['Receipt is already attached to another transaction', userCopy.bot.receipts.verificationErrors.alreadyAttached],
+  ]);
+
+  return messages.get(error) ?? error;
+}
+
+export function formatReceiptVerificationResult(
+  status: keyof typeof userCopy.bot.receipts.statusLabels,
+  error?: string | null
+) {
+  const label = formatReceiptVerificationStatus(status);
+  const reason = status === 'failed' ? formatReceiptVerificationError(error) : undefined;
+
+  return reason
+    ? `${label}\n${userCopy.bot.receipts.failureReasonPrefix}: ${reason}`
+    : label;
+}
+
 export async function promptForReceiptAttachment(
   ctx: MyContext,
   telegramConfig: TelegramConfig,

@@ -74,6 +74,21 @@ test('replyOwnedHistory shows receipt status and link without operator-only skip
           receiptUrl: undefined,
         },
       },
+      {
+        id: 'tx-failed',
+        card_id: 'card-1',
+        type: 'DEBIT',
+        amount: 50,
+        balance_after: 1050,
+        description: null,
+        operator_id: 'operator-1',
+        created_at: now,
+        receipt: {
+          status: 'failed',
+          receiptUrl: 'https://example.test/failed',
+          verificationError: 'Receipt is older than 60 minutes',
+        },
+      },
     ] satisfies TransactionWithReceipt[],
   }));
 
@@ -86,6 +101,8 @@ test('replyOwnedHistory shows receipt status and link without operator-only skip
     assert.match(ctx.replies[0]!.text, /Чек приложен/);
     assert.match(ctx.replies[0]!.text, /https:\/\/example\.test\/debit/);
     assert.match(ctx.replies[0]!.text, /Чек не приложен/);
+    assert.match(ctx.replies[0]!.text, /Чек не прошел проверку: чек старше 60 минут/);
+    assert.doesNotMatch(ctx.replies[0]!.text, /29\.06\.2026|64\.99/);
     assert.doesNotMatch(ctx.replies[0]!.text, /technical_error|internal note/);
   } finally {
     restoreHistory();
