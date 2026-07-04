@@ -42,9 +42,9 @@ const palette = {
 
 const userCards = [
   {
-    title: 'Зачем нужен ION bot',
+    title: 'Зачем нужен бот Ион',
     command: '/start',
-    intro: 'Бот хранит подарочную карту в Telegram: код, QR, баланс и историю.',
+    intro: 'Бот хранит карту в Telegram: код, QR, баланс и историю.',
     steps: ['Показывает меню действий.', 'Помогает создать или привязать карту.', 'Даёт QR для предъявления на кассе.'],
     warning: 'Списание, пополнение и выпуск подарочных карт доступны только оператору.',
     footer: 'Начните с /start или кнопки меню.',
@@ -54,7 +54,7 @@ const userCards = [
     command: '/balance [код]',
     intro: 'Показывает баланс текущей или указанной карты.',
     steps: ['Без кода использует вашу привязанную карту.', 'С кодом показывает публичный баланс карты.', 'Если карты нет, бот предложит QR-сканер или ручной ввод.'],
-    warning: 'Проверка баланса по коду работает как bearer-доступ: кто знает код, видит баланс.',
+    warning: 'Кто знает код карты, может посмотреть её баланс.',
     footer: 'Кнопка "Баланс" видна в меню всегда.',
   },
   {
@@ -62,37 +62,37 @@ const userCards = [
     command: '/history [код]',
     intro: 'Показывает последние операции по карте и статусы чеков.',
     steps: ['Без кода открывает историю вашей карты.', 'С кодом проверяет доступ к истории.', 'Показывает до 10 последних операций.'],
-    warning: 'История owned card доступна только владельцу или оператору.',
+    warning: 'История чужой привязанной карты закрыта для обычных пользователей.',
     footer: 'Кнопка "История" видна в меню всегда.',
   },
   {
     title: 'Моя карта',
     command: '/my_card',
     intro: 'Возвращает QR, код и баланс текущей карты пользователя.',
-    steps: ['Бот определяет Telegram account.', 'Ищет привязанную карту.', 'Отправляет QR для предъявления на кассе.'],
+    steps: ['Бот определяет пользователя Telegram.', 'Ищет привязанную карту.', 'Отправляет QR для предъявления на кассе.'],
     warning: 'Если карты нет, бот предложит создать новую или привязать существующую.',
     footer: 'Кнопка "Моя карта" видна в меню всегда.',
   },
   {
     title: 'Создать мою карту',
     command: '/create_my_card',
-    intro: 'Создаёт личную карту для текущего Telegram account.',
+    intro: 'Создаёт личную карту для текущего пользователя Telegram.',
     steps: ['Если карты ещё нет, бот создаёт её.', 'Если карта уже есть, бот покажет существующую.', 'Пользователь получает QR и код карты.'],
-    warning: 'Текущая продуктовая модель допускает одну карту на клиента.',
+    warning: 'У одного пользователя может быть только одна текущая карта.',
     footer: 'Кнопка видна, когда у клиента нет привязанной карты.',
   },
   {
     title: 'Привязать карту',
     command: '/link [код]',
-    intro: 'Привязывает существующую карту к Telegram account.',
-    steps: ['С кодом привязывает карту сразу.', 'Без кода запускает QR-сканирование, если настроен WEB_APP_URL.', 'Если карта уже ваша, бот просто покажет её.'],
+    intro: 'Привязывает существующую карту к пользователю Telegram.',
+    steps: ['С кодом привязывает карту сразу.', 'Без кода предлагает отсканировать QR.', 'Если карта уже ваша, бот просто покажет её.'],
     warning: 'Нельзя привязать карту, которая уже принадлежит другому пользователю.',
     footer: 'Кнопка видна, когда у клиента нет привязанной карты.',
   },
   {
     title: 'Отвязать карту',
     command: '/unlink [код]',
-    intro: 'Снимает связь между Telegram account и картой.',
+    intro: 'Отвязывает карту от пользователя Telegram.',
     steps: ['Без кода отвязывает текущую карту.', 'С кодом отвязывает указанную карту владельца.', 'После отвязки бот возвращает QR и код.'],
     warning: 'Сохраните QR или код: после отвязки карта больше не будет личной в Telegram.',
     footer: 'Кнопка видна, когда у клиента есть привязанная карта.',
@@ -119,7 +119,7 @@ const userCards = [
     intro: 'Кнопки в нижнем меню зависят от состояния карты пользователя.',
     steps: ['Баланс, История и Моя карта видны всегда.', 'Создать и Привязать видны, когда карты нет.', 'Отвязать видна, когда карта уже есть.'],
     warning: 'Если состояние карты определить не удалось, бот показывает запасной набор действий.',
-    footer: 'Slash-команды остаются доступными независимо от кнопок.',
+    footer: 'Команды остаются доступными независимо от кнопок.',
   },
 ];
 
@@ -128,23 +128,23 @@ const operatorCards = [
     title: 'Роль оператора',
     command: '/start',
     intro: 'Оператор работает с картами клиентов на кассе и имеет отдельные команды.',
-    steps: ['Бот проверяет Telegram ID оператора.', 'Показывает операторское меню.', 'Открывает действия: списать, пополнить, создать карту.'],
-    warning: 'Если Telegram ID не найден в активных operators, кассовые команды будут отклонены.',
-    footer: 'Операторские права задаются в базе operators.',
+    steps: ['Бот узнаёт, что вы оператор.', 'Показывает операторское меню.', 'Открывает действия: списать, пополнить, создать карту.'],
+    warning: 'Если пользователь не является оператором, кассовые команды будут отклонены.',
+    footer: 'Права оператора выдаются администратором.',
   },
   {
     title: 'Операторское меню',
     command: 'reply-клавиатура',
     intro: 'Оператор видит клиентские действия и кассовые кнопки.',
     steps: ['Баланс, История и Моя карта остаются доступны.', 'Добавляются Списать и Пополнить.', 'Добавляется Создать подарочную карту.'],
-    warning: 'Операторские кнопки всё равно повторно проверяют active operator record.',
+    warning: 'Даже кнопки кассовых действий доступны только действующим операторам.',
     footer: 'Меню появляется после /start у активного оператора.',
   },
   {
     title: 'Списать с карты',
     command: '/debit',
     intro: 'Списывает сумму с карты клиента.',
-    steps: ['/debit <код> <сумма> [описание] списывает напрямую.', '/debit <сумма> [описание] запускает сканирование QR.', 'После операции бот просит чек.'],
+    steps: ['С кодом карты списывает сразу.', 'Без кода предлагает сканировать QR.', 'После операции бот просит чек.'],
     warning: 'Сумма должна быть больше нуля, а баланс карты должен быть достаточным.',
     footer: 'Команда и кнопка видны только активным операторам.',
   },
@@ -152,7 +152,7 @@ const operatorCards = [
     title: 'Пополнить карту',
     command: '/credit',
     intro: 'Увеличивает баланс карты клиента.',
-    steps: ['/credit <код> <сумма> [описание] пополняет напрямую.', '/credit <сумма> [описание] запускает сканирование QR.', 'После операции бот просит чек.'],
+    steps: ['С кодом карты пополняет сразу.', 'Без кода предлагает сканировать QR.', 'После операции бот просит чек.'],
     warning: 'Сумма должна быть больше нуля. Описание необязательно.',
     footer: 'Команда и кнопка видны только активным операторам.',
   },
@@ -167,10 +167,10 @@ const operatorCards = [
   {
     title: 'Чек после операции',
     command: 'QR чека',
-    intro: 'После CREATE, DEBIT и CREDIT бот ждёт подтверждение чеком.',
-    steps: ['Оператор сканирует QR бумажного или электронного чека.', 'Бот сохраняет raw QR payload и статус.', 'Статус чека попадает в историю операций.'],
-    warning: 'Если WEB_APP_URL не настроен, бот попросит ввести причину пропуска текстом.',
-    footer: 'Чек привязывается к конкретной transaction.',
+    intro: 'После создания, списания и пополнения бот ждёт чек.',
+    steps: ['Оператор сканирует QR бумажного или электронного чека.', 'Бот сохраняет чек и показывает статус.', 'Статус чека попадает в историю операций.'],
+    warning: 'Если сканер недоступен, бот попросит указать причину пропуска.',
+    footer: 'Чек относится к конкретной операции.',
   },
   {
     title: 'Пропустить чек',
@@ -178,16 +178,38 @@ const operatorCards = [
     intro: 'Если чек нельзя приложить, оператор указывает причину.',
     steps: ['Допустимы: нечитаемый QR, чек потерян.', 'Также: касса без QR, техническая ошибка.', 'Для "другое" нужен комментарий.'],
     warning: 'Дубликат чека не прикрепляется к другой операции.',
-    footer: 'Пропуск доступен только когда есть pending receipt.',
+    footer: 'Пропуск доступен сразу после кассовой операции.',
   },
   {
     title: 'История для оператора',
     command: '/history [код]',
-    intro: 'Оператор может смотреть историю owned card по коду.',
-    steps: ['С кодом бот строит actor с operatorId.', 'Policy разрешает оператору историю owned card.', 'В ответе видны последние операции и статусы чеков.'],
-    warning: 'Причины пропуска и комментарии предназначены для операционного разбора.',
-    footer: 'Клиент без прав не видит чужую owned history.',
+    intro: 'Оператор может смотреть историю карты по её коду.',
+    steps: ['Оператор вводит код карты.', 'Бот показывает последние операции.', 'В истории видны статусы чеков.'],
+    warning: 'Обычный пользователь не видит историю чужой привязанной карты.',
+    footer: 'Чужая история закрыта для обычных пользователей.',
   },
+];
+
+const forbiddenVisibleTerms = [
+  'bearer',
+  'owned',
+  'account',
+  'WEB_APP_URL',
+  'CREATE',
+  'DEBIT',
+  'CREDIT',
+  'record',
+  'pending receipt',
+  'transaction',
+  'Policy',
+  'actor',
+  'operatorId',
+  'operators',
+  'provider',
+  'database',
+  'таблиц',
+  'базе operators',
+  'Telegram ID',
 ];
 
 function escapeXml(value) {
@@ -234,7 +256,24 @@ function textLines(lines, x, y, options = {}) {
   return { svg, y: cursor };
 }
 
+function assertCardCopy(card, audience, index) {
+  const values = [
+    card.title,
+    card.command,
+    card.intro,
+    ...card.steps,
+    card.warning,
+    card.footer,
+  ];
+  const fullText = values.join('\n');
+  const badTerm = forbiddenVisibleTerms.find((term) => fullText.includes(term));
+  if (badTerm) {
+    throw new Error(`${audience} card ${index}: visible copy contains internal term "${badTerm}"`);
+  }
+}
+
 function cardSvg(card, index, total, audience) {
+  assertCardCopy(card, audience, index);
   const p = palette[audience];
   const role = audience === 'user' ? 'ПОЛЬЗОВАТЕЛЬ' : 'ОПЕРАТОР';
   let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
@@ -249,6 +288,9 @@ function cardSvg(card, index, total, audience) {
     maxChars: 23,
     lineHeight: 64,
   });
+  if (title.y > 330) {
+    throw new Error(`${audience} card ${index}: title overflows into intro area`);
+  }
   svg += title.svg;
 
   const intro = textLines([card.intro], 72, 354, {
@@ -257,6 +299,9 @@ function cardSvg(card, index, total, audience) {
     maxChars: 54,
     lineHeight: 38,
   });
+  if (intro.y > 430) {
+    throw new Error(`${audience} card ${index}: intro overflows into command area`);
+  }
   svg += intro.svg;
 
   svg += `<rect x="72" y="440" width="936" height="78" rx="18" fill="${p.card}" stroke="${palette.border}" stroke-width="2"/>
@@ -265,7 +310,8 @@ function cardSvg(card, index, total, audience) {
   svg += `<rect x="72" y="548" width="936" height="268" rx="24" fill="${p.card}" stroke="${palette.border}" stroke-width="2"/>
   <text x="102" y="584" font-size="24" font-weight="800" fill="${p.accent}">Как работает</text>`;
 
-  let stepY = 642;
+  let stepY = 638;
+  let lastStepTextBottom = stepY;
   card.steps.forEach((step, stepIndex) => {
     svg += `<circle cx="120" cy="${stepY - 8}" r="18" fill="${p.badge}"/>
     <text x="120" y="${stepY + 1}" text-anchor="middle" font-size="18" font-weight="800" fill="${p.accent}">${stepIndex + 1}</text>`;
@@ -273,11 +319,15 @@ function cardSvg(card, index, total, audience) {
       size: 26,
       fill: palette.text,
       maxChars: 50,
-      lineHeight: 34,
+      lineHeight: 32,
     });
     svg += lines.svg;
-    stepY = lines.y + 28;
+    lastStepTextBottom = lines.y;
+    stepY = lines.y + 18;
   });
+  if (lastStepTextBottom > 810) {
+    throw new Error(`${audience} card ${index}: steps overflow into warning area`);
+  }
 
   svg += `<rect x="72" y="824" width="936" height="142" rx="22" fill="${p.warning}" stroke="${p.warningBorder}" stroke-width="2"/>
   <text x="102" y="854" font-size="18" font-weight="900" fill="${p.accent}">ОГРАНИЧЕНИЕ / ВАЖНО</text>`;
@@ -287,6 +337,9 @@ function cardSvg(card, index, total, audience) {
     maxChars: 58,
     lineHeight: 32,
   });
+  if (warning.y > 958) {
+    throw new Error(`${audience} card ${index}: warning text overflows its block`);
+  }
   svg += warning.svg;
 
   svg += `<text x="72" y="1038" font-size="22" font-weight="600" fill="${p.accent}">${escapeXml(card.footer)}</text>

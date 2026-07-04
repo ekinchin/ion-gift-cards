@@ -32,6 +32,8 @@ Use this skill to turn the current Telegram bot implementation into user-facing 
    - Operator: warm off-white background and green accent.
    - Structure: numbered badge + audience label, large title, intro, command pill, “Как работает” block with three numbered steps, “Ограничение / важно” warning block, short footer.
    - Avoid dense dark cards, nested panels, tiny text, or long prose that competes with Telegram preview readability.
+   - Keep all visible card copy in Russian except command names, product names, and common abbreviations such as QR.
+   - Hide implementation details. Do not mention internal terms such as actor, policy, transaction, owned card, bearer, provider, `operatorId`, environment variables, or database table names on cards.
 
 5. **Use Figma when available, but do not hide connector failures.**
    - Load the required Figma skills before Figma write calls.
@@ -53,6 +55,7 @@ node /path/to/telegram-bot-doc-cards/scripts/render-telegram-bot-cards.mjs /path
 
 7. **Verify before completion.**
    - Run `identify docs/telegram-bot-cards/user/*.png docs/telegram-bot-cards/operator/*.png` and confirm every card is `1080x1080`.
+   - Keep the renderer's layout guard enabled. If it throws a text overflow error, shorten the card text instead of shrinking it into unreadable type.
    - Open representative generated cards with an image viewer tool when available, especially cards with long command names or warnings.
    - Run the project’s relevant check, typically `npm run typecheck`, when docs were changed in a TypeScript repo.
    - Report exactly what was updated, what passed, and whether Figma was actually updated.
@@ -61,9 +64,10 @@ node /path/to/telegram-bot-doc-cards/scripts/render-telegram-bot-cards.mjs /path
 
 - Include conditions for command/menu visibility, not just command syntax.
 - Mark operator-only actions explicitly.
-- Mention QR Mini App fallback when `WEB_APP_URL` is absent.
-- Mention receipt requirements after `CREATE`, `DEBIT`, and `CREDIT`.
+- Mention QR-scanner fallback without exposing config variable names.
+- Mention receipt requirements after gift-card creation, debit, and credit without exposing internal transaction type names.
 - Keep card text shorter than the docs page. Cards are summaries, not the full manual.
+- Use audience language: explain what a user or operator needs to know, not how the code or database implements it.
 - Never claim Figma was updated unless the Figma tool call succeeded.
 
 ## Bundled Script
