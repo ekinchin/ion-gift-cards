@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Bot, session } from 'grammy';
 import type { MyContext, SessionData } from '../src/bot/context.ts';
+import { ReceiptAlreadyAttachedError } from '../src/application/errors.ts';
 import { registerMessageHandlers } from '../src/bot/handlers/messages.ts';
 import { menuButtonLabels } from '../src/bot/menu.ts';
 import { cardService, operatorRepository, transactionReceiptService } from '../src/services/index.ts';
@@ -176,6 +177,112 @@ test('receipt skip completion restores the operator menu keyboard', async () => 
     ]);
   } finally {
     restoreSkip();
+    restoreOperator();
+  }
+});
+
+test('duplicate receipt scan after credit repeats the applied operation summary', async () => {
+  const { bot, apiCalls } = createTestBot({
+    pendingReceipt: {
+      transactionId: 'tx-credit',
+      operationType: 'CREDIT',
+      cardCode: 'ION-CREDIT01',
+      amount: 500,
+      balanceAfter: 1500,
+    },
+  });
+  const restoreOperator = patchMethod(operatorRepository, 'findByTelegramId', async () => ({
+    id: 'operator-1',
+    telegram_id: 1001,
+    name: 'Operator',
+    is_active: true,
+    created_at: new Date('2026-06-30T00:00:00.000Z'),
+  }));
+  const restoreAttach = patchMethod(transactionReceiptService, 'attachReceipt', async () => {
+    throw new ReceiptAlreadyAttachedError();
+  });
+
+  try {
+    await bot.handleUpdate({
+      update_id: 4,
+      message: {
+        message_id: 1,
+        date: 1782777600,
+        chat: { id: 1001, type: 'private', first_name: 'Operator' },
+        from: { id: 1001, is_bot: false, first_name: 'Operator' },
+        web_app_data: {
+          button_text: 'Сканировать QR чека',
+          data: JSON.stringify({ action: 'receipt', code: 't=20260630T0000&s=500.00&fn=1&i=1&fp=1&n=1' }),
+        },
+      },
+    });
+
+    assert.equal(apiCalls.length, 1);
+    assert.equal(apiCalls[0]!.method, 'sendMessage');
+    assert.equal(
+      apiCalls[0]!.payload.text,
+      [
+        '✅ Пополнено: 500 ₽',
+        '💳 Карта: ION-CREDIT01',
+        '💰 Баланс: 1500 ₽',
+        '🧾 Чек не прикреплен: уже был отсканирован и привязан к другой операции',
+      ].join('\n')
+    );
+  } finally {
+    restoreAttach();
+    restoreOperator();
+  }
+});
+
+test('duplicate receipt scan after debit repeats the applied operation summary', async () => {
+  const { bot, apiCalls } = createTestBot({
+    pendingReceipt: {
+      transactionId: 'tx-debit',
+      operationType: 'DEBIT',
+      cardCode: 'ION-DEBIT01',
+      amount: 300,
+      balanceAfter: 1200,
+    },
+  });
+  const restoreOperator = patchMethod(operatorRepository, 'findByTelegramId', async () => ({
+    id: 'operator-1',
+    telegram_id: 1001,
+    name: 'Operator',
+    is_active: true,
+    created_at: new Date('2026-06-30T00:00:00.000Z'),
+  }));
+  const restoreAttach = patchMethod(transactionReceiptService, 'attachReceipt', async () => {
+    throw new ReceiptAlreadyAttachedError();
+  });
+
+  try {
+    await bot.handleUpdate({
+      update_id: 5,
+      message: {
+        message_id: 1,
+        date: 1782777600,
+        chat: { id: 1001, type: 'private', first_name: 'Operator' },
+        from: { id: 1001, is_bot: false, first_name: 'Operator' },
+        web_app_data: {
+          button_text: 'Сканировать QR чека',
+          data: JSON.stringify({ action: 'receipt', code: 't=20260630T0000&s=300.00&fn=1&i=1&fp=1&n=1' }),
+        },
+      },
+    });
+
+    assert.equal(apiCalls.length, 1);
+    assert.equal(apiCalls[0]!.method, 'sendMessage');
+    assert.equal(
+      apiCalls[0]!.payload.text,
+      [
+        '✅ Списано: 300 ₽',
+        '💳 Карта: ION-DEBIT01',
+        '💰 Остаток: 1200 ₽',
+        '🧾 Чек не прикреплен: уже был отсканирован и привязан к другой операции',
+      ].join('\n')
+    );
+  } finally {
+    restoreAttach();
     restoreOperator();
   }
 });

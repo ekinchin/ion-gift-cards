@@ -123,6 +123,8 @@ export const userCopy = {
       } satisfies Record<ReceiptSkipReason, string>,
       saved: '✅ Чек сохранен',
       skipped: '✅ Чек пропущен',
+      notAttachedPrefix: 'Чек не прикреплен:',
+      notAttachedDuplicate: 'Чек не прикреплен: уже был отсканирован и привязан к другой операции',
     },
     operations: {
       debitSign: '🔴',

@@ -39,6 +39,9 @@ export function createTextMessageHandler(telegramConfig: TelegramConfig) {
         await promptForReceiptAttachment(ctx, telegramConfig, {
           transactionId: result.transaction.id,
           operationType: result.transaction.type,
+          cardCode: result.card.code,
+          amount: pendingOperation.amount,
+          balanceAfter: result.card.balance,
         });
       } catch (error) {
         await ctx.reply(`${userCopy.bot.replies.errorPrefix} ${formatBotErrorMessage(error)}`);

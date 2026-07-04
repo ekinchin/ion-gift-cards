@@ -1,7 +1,7 @@
 import type { TelegramConfig } from '../../../configuration/configuration-service.ts';
 import { userCopy } from '../../../copy.ts';
 import { cardService, transactionReceiptService } from '../../../services/index.ts';
-import type { MyContext } from '../../context.ts';
+import type { MyContext, PendingReceiptAttachment } from '../../context.ts';
 import { formatBotErrorMessage } from '../../error-copy.ts';
 import { parseScanWebAppData, type ScanAction, type ScanWebAppPayload } from '../../scan-web-app.ts';
 import {
@@ -58,8 +58,56 @@ async function handleReceipt(ctx: MyContext, payload: ScanWebAppPayload) {
       { reply_markup: mainMenuKeyboard(true) }
     );
   } catch (error) {
+    const receiptFailureMessage = formatReceiptFailureWithOperation(pendingReceipt, error);
+    if (receiptFailureMessage) {
+      await ctx.reply(receiptFailureMessage);
+      return;
+    }
     await ctx.reply(`${userCopy.bot.replies.errorPrefix} ${formatBotErrorMessage(error)}`);
   }
+}
+
+function formatReceiptFailureWithOperation(
+  pendingReceipt: PendingReceiptAttachment,
+  error: unknown
+) {
+  if (
+    !pendingReceipt.cardCode
+    || pendingReceipt.amount === undefined
+    || pendingReceipt.balanceAfter === undefined
+  ) {
+    return null;
+  }
+
+  const receiptLine = `${userCopy.bot.receipts.icon} ${formatReceiptFailure(error)}`;
+
+  if (pendingReceipt.operationType === 'CREDIT') {
+    return [
+      `${userCopy.bot.operations.credited}: ${pendingReceipt.amount} ₽`,
+      `${userCopy.bot.cards.card}: ${pendingReceipt.cardCode}`,
+      `${userCopy.bot.cards.balance}: ${pendingReceipt.balanceAfter} ₽`,
+      receiptLine,
+    ].join('\n');
+  }
+
+  if (pendingReceipt.operationType === 'DEBIT') {
+    return [
+      `${userCopy.bot.operations.debited}: ${pendingReceipt.amount} ₽`,
+      `${userCopy.bot.cards.card}: ${pendingReceipt.cardCode}`,
+      `${userCopy.bot.operations.remaining}: ${pendingReceipt.balanceAfter} ₽`,
+      receiptLine,
+    ].join('\n');
+  }
+
+  return null;
+}
+
+function formatReceiptFailure(error: unknown) {
+  if (error instanceof Error && error.message === 'Receipt is already attached to another transaction') {
+    return userCopy.bot.receipts.notAttachedDuplicate;
+  }
+
+  return `${userCopy.bot.receipts.notAttachedPrefix} ${formatBotErrorMessage(error)}`;
 }
 
 async function handleDebit(
@@ -78,6 +126,9 @@ async function handleDebit(
     await promptForReceiptAttachment(ctx, telegramConfig, {
       transactionId: result.transaction.id,
       operationType: result.transaction.type,
+      cardCode: result.card.code,
+      amount: payload.amount!,
+      balanceAfter: result.card.balance,
     });
   } catch (error) {
     await ctx.reply(`${userCopy.bot.replies.errorPrefix} ${formatBotErrorMessage(error)}`);
@@ -100,6 +151,9 @@ async function handleCredit(
     await promptForReceiptAttachment(ctx, telegramConfig, {
       transactionId: result.transaction.id,
       operationType: result.transaction.type,
+      cardCode: result.card.code,
+      amount: payload.amount!,
+      balanceAfter: result.card.balance,
     });
   } catch (error) {
     await ctx.reply(`${userCopy.bot.replies.errorPrefix} ${formatBotErrorMessage(error)}`);

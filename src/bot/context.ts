@@ -5,6 +5,9 @@ import type { TransactionType } from '../types/index.ts';
 export interface PendingReceiptAttachment {
   transactionId: string;
   operationType: TransactionType;
+  cardCode?: string;
+  amount?: number;
+  balanceAfter?: number;
 }
 
 export interface PendingCardOperation {

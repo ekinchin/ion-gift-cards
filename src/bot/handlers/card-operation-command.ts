@@ -112,6 +112,9 @@ export function createCardOperationCommandHandler(
         await promptForReceiptAttachment(ctx, telegramConfig, {
           transactionId: result.transaction.id,
           operationType: result.transaction.type,
+          cardCode: result.card.code,
+          amount: command.amount,
+          balanceAfter: result.card.balance,
         });
       } catch (error) {
         await ctx.reply(`${userCopy.bot.replies.errorPrefix} ${formatBotErrorMessage(error)}`);

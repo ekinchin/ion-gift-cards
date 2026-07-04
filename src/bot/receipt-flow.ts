@@ -50,7 +50,13 @@ export function formatReceiptVerificationStatus(status: keyof typeof userCopy.bo
 export async function promptForReceiptAttachment(
   ctx: MyContext,
   telegramConfig: TelegramConfig,
-  operation: { transactionId: string; operationType: TransactionType }
+  operation: {
+    transactionId: string;
+    operationType: TransactionType;
+    cardCode?: string;
+    amount?: number;
+    balanceAfter?: number;
+  }
 ) {
   ctx.session.pendingReceipt = operation;
 
