@@ -106,3 +106,9 @@ export class TransferToSameCustomerError extends AppError {
     super('Card is already owned by this customer', 'TRANSFER_TO_SAME_CUSTOMER', 409);
   }
 }
+
+export class ReceiptAlreadyAttachedError extends AppError {
+  constructor() {
+    super('Receipt is already attached to another transaction', 'RECEIPT_ALREADY_ATTACHED', 409);
+  }
+}

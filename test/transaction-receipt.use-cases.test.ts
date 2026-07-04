@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import type { ReceiptConfig } from '../src/configuration/configuration-service.ts';
 import type { Transaction, TransactionReceipt } from '../src/types/index.ts';
 import { TransactionReceiptUseCases } from '../src/application/transaction-receipt.use-cases.ts';
+import { AppError } from '../src/application/errors.ts';
 
 const receiptConfig: ReceiptConfig = {
   mode: 'soft',
@@ -119,7 +120,9 @@ test('attachReceipt rejects duplicate fiscal receipts', async () => {
 
   await assert.rejects(
     () => useCases.attachReceipt({ transactionId: 'tx-2', rawQrPayload, operatorId: 'operator-1' }),
-    /Receipt is already attached/
+    (error) => error instanceof AppError
+      && error.code === 'RECEIPT_ALREADY_ATTACHED'
+      && error.statusCode === 409
   );
 });
 

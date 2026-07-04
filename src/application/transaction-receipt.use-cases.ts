@@ -14,7 +14,7 @@ import {
   validateReceiptForTransaction,
   validateReceiptSkip,
 } from './receipt-verification.ts';
-import { CardNotFoundError } from './errors.ts';
+import { CardNotFoundError, ReceiptAlreadyAttachedError } from './errors.ts';
 
 export interface AttachReceiptInput {
   transactionId: string;
@@ -59,7 +59,7 @@ export class TransactionReceiptUseCases {
     const fiscalFingerprint = buildFiscalFingerprint(parsed);
     const existing = await this.#receiptRepo.findByFingerprint(fiscalFingerprint);
     if (existing) {
-      throw new Error('Receipt is already attached to another transaction');
+      throw new ReceiptAlreadyAttachedError();
     }
 
     const verification = validateReceiptForTransaction({

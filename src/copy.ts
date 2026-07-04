@@ -151,6 +151,7 @@ export const userCopy = {
       transferTokenExpired: 'Срок действия кода передачи истек',
       transferTokenUsed: 'Код передачи уже использован',
       transferToSameCustomer: 'Карта уже принадлежит вам',
+      receiptAlreadyAttached: 'Этот чек уже был отсканирован и привязан к другой операции',
       insufficientBalance: 'Недостаточно средств',
       insufficientBalanceWithAmounts: 'Недостаточно средств. Текущий баланс: {current} ₽, требуется: {required} ₽',
       generic: 'Ошибка',

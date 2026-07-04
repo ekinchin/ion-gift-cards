@@ -16,6 +16,7 @@ const appErrorCopy: Record<string, string | ((error: AppError) => string)> = {
   TRANSFER_TOKEN_EXPIRED: userCopy.bot.errors.transferTokenExpired,
   TRANSFER_TOKEN_USED: userCopy.bot.errors.transferTokenUsed,
   TRANSFER_TO_SAME_CUSTOMER: userCopy.bot.errors.transferToSameCustomer,
+  RECEIPT_ALREADY_ATTACHED: userCopy.bot.errors.receiptAlreadyAttached,
   INSUFFICIENT_BALANCE: (error) => {
     const match = /^Insufficient balance\. Current: ([^,]+), Required: (.+)$/.exec(error.message);
     if (!match) {

@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  AppError,
   CardAlreadyLinkedError,
   CardAlreadyLinkedToCustomerError,
   CardHistoryAccessDeniedError,
@@ -45,6 +46,13 @@ test('formatBotErrorMessage translates insufficient balance with amounts', () =>
   assert.equal(
     formatBotErrorMessage(new InsufficientBalanceError(100, 250)),
     'Недостаточно средств. Текущий баланс: 100 ₽, требуется: 250 ₽'
+  );
+});
+
+test('formatBotErrorMessage explains duplicate receipt scans', () => {
+  assert.equal(
+    formatBotErrorMessage(new AppError('Receipt is already attached to another transaction', 'RECEIPT_ALREADY_ATTACHED', 409)),
+    'Этот чек уже был отсканирован и привязан к другой операции'
   );
 });
 
