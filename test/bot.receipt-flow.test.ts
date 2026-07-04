@@ -71,7 +71,7 @@ test('parseReceiptSkipInput parses fixed skip reasons and comments', () => {
 });
 
 test('receipt result labels are localized for chat replies', () => {
-  assert.equal(formatReceiptVerificationStatus('pending_verification'), 'чек ожидает проверки');
+  assert.equal(formatReceiptVerificationStatus('pending_verification'), 'чек приложен');
   assert.equal(formatReceiptVerificationStatus('verified'), 'чек подтвержден');
   assert.equal(formatReceiptVerificationStatus('failed'), 'чек не прошел проверку');
   assert.equal(formatReceiptVerificationStatus('skipped'), 'чек не приложен');

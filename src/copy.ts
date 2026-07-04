@@ -104,13 +104,13 @@ export const userCopy = {
       icon: '🧾',
       statusLabels: {
         verified: 'чек подтвержден',
-        pending_verification: 'чек ожидает проверки',
+        pending_verification: 'чек приложен',
         failed: 'чек не прошел проверку',
         skipped: 'чек не приложен',
       } satisfies Record<ReceiptVerificationStatus, string>,
       historyStatusLabels: {
         verified: 'Чек подтвержден',
-        pending_verification: 'Чек ожидает проверки',
+        pending_verification: 'Чек приложен',
         failed: 'Чек не прошел проверку',
         skipped: 'Чек не приложен',
       } satisfies Record<ReceiptVerificationStatus, string>,
