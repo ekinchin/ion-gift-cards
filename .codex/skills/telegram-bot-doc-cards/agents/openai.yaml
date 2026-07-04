@@ -1,0 +1,4 @@
+interface:
+  display_name: "Telegram Bot Doc Cards"
+  short_description: "Document bot commands and render Telegram cards"
+  default_prompt: "Use $telegram-bot-doc-cards to update Telegram bot documentation and regenerate user/operator card PNGs."
