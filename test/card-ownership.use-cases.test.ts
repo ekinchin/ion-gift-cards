@@ -34,9 +34,13 @@ function makeIdentity(customerId = 'customer-1'): CustomerIdentity {
     customer_id: customerId,
     provider: 'telegram',
     provider_user_id: '1001',
+    telegram_user_id_hmac: 'hash-1001',
+    personal_data_consent_at: now,
+    personal_data_consent_revoked_at: null,
     username: null,
     display_name: null,
     created_at: now,
+    updated_at: now,
   };
 }
 
@@ -47,6 +51,8 @@ function makeUseCases() {
   const transfers: unknown[] = [];
   const transactions = new Map<string, Transaction[]>();
   const receipts = new Map<string, TransactionReceipt>();
+  const revokedConsent: Array<{ customerId: string; provider: 'telegram' }> = [];
+  const deletedIdentities: Array<{ customerId: string; provider: 'telegram' }> = [];
 
   const cardRepo = {
     async findByCode(code: string) {
@@ -70,6 +76,9 @@ function makeUseCases() {
     async findByCardId(cardId: string) {
       return transactions.get(cardId) ?? [];
     },
+    async deleteByCardId(cardId: string) {
+      transactions.delete(cardId);
+    },
   };
   const receiptRepo = {
     async findByTransactionIds(transactionIds: string[]) {
@@ -77,11 +86,22 @@ function makeUseCases() {
         .map((transactionId) => receipts.get(transactionId))
         .filter(Boolean);
     },
+    async deleteByTransactionIds(transactionIds: string[]) {
+      for (const transactionId of transactionIds) {
+        receipts.delete(transactionId);
+      }
+    },
   };
   const customerRepo = {
     async resolveOrCreateIdentity() {
       const customer = makeCustomer();
       return { customer, identity: makeIdentity(customer.id) };
+    },
+    async revokeConsent(customerId: string, provider: 'telegram') {
+      revokedConsent.push({ customerId, provider });
+    },
+    async deleteIdentity(customerId: string, provider: 'telegram') {
+      deletedIdentities.push({ customerId, provider });
     },
   };
   const ownershipRepo = {
@@ -151,7 +171,7 @@ function makeUseCases() {
     receiptRepo
   );
 
-  return { useCases, cards, owners, tokens, transfers, transactions, receipts };
+  return { useCases, cards, owners, tokens, transfers, transactions, receipts, revokedConsent, deletedIdentities };
 }
 
 test('createPersonalCard creates a zero-balance card and links it to the customer', async () => {
@@ -268,6 +288,71 @@ test('unlinkCard removes current owner and records unlink event', async () => {
     initiatedByCustomerId: 'customer-1',
     type: 'OWNER_UNLINK',
   });
+});
+
+test('unlinkCard deletes card history and revokes consent when no active binding remains', async () => {
+  const { useCases, cards, owners, transfers, transactions, receipts, revokedConsent, deletedIdentities } = makeUseCases();
+  cards.set('card-1', makeCard());
+  owners.set('card-1', { card_id: 'card-1', customer_id: 'customer-1', linked_at: now });
+  transactions.set('card-1', [
+    {
+      id: 'tx-1',
+      card_id: 'card-1',
+      type: 'DEBIT',
+      amount: 100,
+      balance_after: 900,
+      description: null,
+      operator_id: null,
+      created_at: now,
+    },
+    {
+      id: 'tx-2',
+      card_id: 'card-1',
+      type: 'CREDIT',
+      amount: 50,
+      balance_after: 950,
+      description: null,
+      operator_id: null,
+      created_at: now,
+    },
+  ]);
+  receipts.set('tx-1', {
+    id: 'receipt-1',
+    transaction_id: 'tx-1',
+    raw_qr_payload: null,
+    receipt_url: null,
+    fiscal_fn: null,
+    fiscal_fd: null,
+    fiscal_fp: null,
+    fiscal_operation_type: null,
+    fiscal_fingerprint: null,
+    receipt_issued_at: null,
+    receipt_total: null,
+    receipt_inn: null,
+    verification_status: 'skipped',
+    verification_error: null,
+    skip_reason: 'technical_error',
+    skip_comment: null,
+    created_by_operator_id: null,
+    created_at: now,
+    verified_at: null,
+  });
+
+  const card = await useCases.unlinkCard('customer-1', 'CARD-1');
+
+  assert.equal(card.id, 'card-1');
+  assert.equal(owners.has('card-1'), false);
+  assert.deepEqual(transfers.at(-1), {
+    cardId: 'card-1',
+    fromCustomerId: 'customer-1',
+    toCustomerId: null,
+    initiatedByCustomerId: 'customer-1',
+    type: 'OWNER_UNLINK',
+  });
+  assert.equal(transactions.has('card-1'), false);
+  assert.equal(receipts.has('tx-1'), false);
+  assert.deepEqual(revokedConsent, [{ customerId: 'customer-1', provider: 'telegram' }]);
+  assert.deepEqual(deletedIdentities, [{ customerId: 'customer-1', provider: 'telegram' }]);
 });
 
 test('unlinkCard rejects a card owned by another customer', async () => {
