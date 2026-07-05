@@ -199,10 +199,6 @@ export async function linkCardToCurrentCustomer(ctx: MyContext, code: string) {
     return;
   }
 
-  await promptOwnershipConfirmation(ctx, { action: 'linkCard', code });
-}
-
-export async function completeLinkCardToCurrentCustomer(ctx: MyContext, code: string) {
   const customer = await resolveCurrentCustomer(ctx);
   if (!customer) return;
 
@@ -217,16 +213,12 @@ export async function completeLinkCardToCurrentCustomer(ctx: MyContext, code: st
 export async function promptOwnershipConfirmation(ctx: MyContext, action: PendingOwnershipConfirmation) {
   ctx.session.pendingOwnershipConfirmation = action;
   const copy = userCopy.bot.ownershipConfirmation;
-  const message = action.action === 'linkCard'
-    ? copy.link
-    : action.action === 'acceptTransfer'
-      ? copy.acceptTransfer
-      : copy.transfer;
-  const confirmButton = action.action === 'linkCard'
-    ? copy.linkButton
-    : action.action === 'acceptTransfer'
-      ? copy.acceptTransferButton
-      : copy.transferButton;
+  const message = action.action === 'acceptTransfer'
+    ? copy.acceptTransfer
+    : copy.transfer;
+  const confirmButton = action.action === 'acceptTransfer'
+    ? copy.acceptTransferButton
+    : copy.transferButton;
 
   await ctx.reply(message, {
     reply_markup: {

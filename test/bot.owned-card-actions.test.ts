@@ -341,7 +341,7 @@ test('link command without a code shows the existing card instead of a scan prom
   }
 });
 
-test('menu link manually entered code asks for confirmation before linking', async () => {
+test('menu link manually entered code links immediately after consent', async () => {
   const card = makeCard();
   const ctx = makeContext();
   const restoreOperator = patchMethod(operatorRepository, 'findByTelegramUserIdHash', async () => null);
@@ -370,14 +370,6 @@ test('menu link manually entered code asks for confirmation before linking', asy
 
     assert.equal(pendingHandled, true);
     assert.equal(ctx.session.action, undefined);
-    assert.deepEqual(ctx.session.pendingOwnershipConfirmation, { action: 'linkCard', code: card.code });
-    assert.match(ctx.replies.at(-1)!.text, /Подтвердите привязку/);
-
-    await createTextMessageHandler(telegramConfig as never)({
-      ...ctx,
-      message: { text: userCopy.bot.ownershipConfirmation.linkButton },
-    } as never);
-
     assert.equal(ctx.session.pendingOwnershipConfirmation, undefined);
     assert.match(ctx.replies.at(-1)!.text, /Карта привязана/);
     assert.match(ctx.replies.at(-1)!.text, new RegExp(card.code));
