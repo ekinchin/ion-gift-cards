@@ -2,7 +2,7 @@ import type { CommandContext } from 'grammy';
 import type { TelegramConfig } from '../../../configuration/configuration-service.ts';
 import { userCopy } from '../../../copy.ts';
 import type { MyContext } from '../../context.ts';
-import { linkCardToCurrentCustomer, replyExistingLinkedCard } from '../card-replies.ts';
+import { linkCardToCurrentCustomer, replyExistingLinkedCard, requirePersonalDataConsent } from '../card-replies.ts';
 import { replyScanPrompt } from '../keyboards.ts';
 
 export function createLinkCommandHandler(telegramConfig: TelegramConfig) {
@@ -11,6 +11,9 @@ export function createLinkCommandHandler(telegramConfig: TelegramConfig) {
     const code = ctx.match?.trim();
     if (!code) {
       if (await replyExistingLinkedCard(ctx)) {
+        return;
+      }
+      if (!await requirePersonalDataConsent(ctx, { action: 'linkCard' })) {
         return;
       }
       ctx.session.action = 'link';

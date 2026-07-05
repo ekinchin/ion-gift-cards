@@ -15,13 +15,14 @@ import { promptForReceiptAttachment } from '../receipt-flow.ts';
 import {
   createPersonalCardForCurrentCustomer,
   linkCardToCurrentCustomer,
+  promptUnlinkConfirmation,
   replyBalance,
   replyExistingLinkedCard,
   replyHistory,
   replyMyCards,
   replyOwnedBalance,
   replyOwnedHistory,
-  unlinkCurrentCardFromCurrentCustomer,
+  requirePersonalDataConsent,
 } from './card-replies.ts';
 import type { ScanAction } from '../scan-web-app.ts';
 
@@ -84,6 +85,11 @@ export async function handleMenuButton(
     if (await replyExistingLinkedCard(ctx)) {
       return true;
     }
+    ctx.session.action = undefined;
+    if (!await requirePersonalDataConsent(ctx, { action: 'linkCard' })) {
+      return true;
+    }
+    ctx.session.action = 'link';
     const actor = await resolveBotActor(ctx);
     await replyScanPrompt(
       ctx,
@@ -98,7 +104,7 @@ export async function handleMenuButton(
   }
 
   if (action === 'unlink') {
-    await unlinkCurrentCardFromCurrentCustomer(ctx);
+    await promptUnlinkConfirmation(ctx);
     return true;
   }
 

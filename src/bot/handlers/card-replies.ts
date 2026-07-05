@@ -1,8 +1,9 @@
 import { userCopy } from '../../copy.ts';
 import { AppError } from '../../application/errors.ts';
-import { cardOwnershipService, cardService } from '../../services/index.ts';
+import { cardOwnershipService, cardService, customerRepository } from '../../services/index.ts';
+import { hashTelegramUserIdForBot } from '../telegram-identity.ts';
 import { replyWithCardQr } from '../card-qr.ts';
-import type { MyContext } from '../context.ts';
+import type { MyContext, PendingConsentAction } from '../context.ts';
 import { formatBotErrorMessage } from '../error-copy.ts';
 import { resolveBotActor } from './access.ts';
 import type { MainMenuOptions } from './keyboards.ts';
@@ -47,14 +48,43 @@ export async function resolveCurrentCustomer(ctx: MyContext) {
     return null;
   }
 
-  const displayName = [from.first_name, from.last_name].filter(Boolean).join(' ') || undefined;
   const { customer } = await cardOwnershipService.resolveCustomer({
     provider: 'telegram',
-    providerUserId: String(from.id),
-    username: from.username,
-    displayName,
+    telegramUserIdHash: hashTelegramUserIdForBot(from.id),
   });
   return customer;
+}
+
+export async function requirePersonalDataConsent(
+  ctx: MyContext,
+  action: PendingConsentAction
+): Promise<boolean> {
+  const from = ctx.from;
+  if (!from) {
+    await ctx.reply(userCopy.bot.replies.accountUnknown);
+    return false;
+  }
+
+  const existing = await customerRepository.findByTelegramUserIdHash(hashTelegramUserIdForBot(from.id));
+  const consent = existing
+    ? await customerRepository.findActiveConsent(existing.customer.id, 'telegram')
+    : null;
+  if (consent) {
+    return true;
+  }
+
+  ctx.session.pendingConsentAction = action;
+  await ctx.reply(userCopy.bot.personalDataConsent.prompt, {
+    reply_markup: {
+      keyboard: [[
+        { text: userCopy.bot.personalDataConsent.acceptButton },
+        { text: userCopy.bot.personalDataConsent.declineButton },
+      ]],
+      resize_keyboard: true,
+      one_time_keyboard: true,
+    },
+  });
+  return false;
 }
 
 export async function replyMyCards(ctx: MyContext) {
@@ -96,6 +126,10 @@ export async function replyExistingLinkedCard(ctx: MyContext): Promise<boolean> 
 }
 
 export async function createPersonalCardForCurrentCustomer(ctx: MyContext) {
+  if (!await requirePersonalDataConsent(ctx, { action: 'createPersonalCard' })) {
+    return;
+  }
+
   const customer = await resolveCurrentCustomer(ctx);
   if (!customer) return;
 
@@ -161,6 +195,10 @@ export async function replyOwnedHistory(
 }
 
 export async function linkCardToCurrentCustomer(ctx: MyContext, code: string) {
+  if (!await requirePersonalDataConsent(ctx, { action: 'linkCard', code })) {
+    return;
+  }
+
   const customer = await resolveCurrentCustomer(ctx);
   if (!customer) return;
 
@@ -182,6 +220,20 @@ export async function unlinkCardFromCurrentCustomer(ctx: MyContext, code: string
   } catch (error) {
     await ctx.reply(`${userCopy.bot.replies.errorPrefix} ${formatBotErrorMessage(error)}`);
   }
+}
+
+export async function promptUnlinkConfirmation(ctx: MyContext, code?: string) {
+  ctx.session.pendingUnlinkConfirmation = code ? { code } : {};
+  await ctx.reply(userCopy.bot.unlinkPrivacy.confirm, {
+    reply_markup: {
+      keyboard: [[
+        { text: userCopy.bot.unlinkPrivacy.confirmButton },
+        { text: userCopy.bot.unlinkPrivacy.cancelButton },
+      ]],
+      resize_keyboard: true,
+      one_time_keyboard: true,
+    },
+  });
 }
 
 export async function unlinkCurrentCardFromCurrentCustomer(ctx: MyContext) {
