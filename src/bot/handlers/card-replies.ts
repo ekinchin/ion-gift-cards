@@ -3,7 +3,7 @@ import { AppError } from '../../application/errors.ts';
 import { cardOwnershipService, cardService, customerRepository } from '../../services/index.ts';
 import { hashTelegramUserIdForBot } from '../telegram-identity.ts';
 import { replyWithCardQr } from '../card-qr.ts';
-import type { MyContext, PendingConsentAction } from '../context.ts';
+import type { MyContext, PendingConsentAction, PendingOwnershipConfirmation } from '../context.ts';
 import { formatBotErrorMessage } from '../error-copy.ts';
 import { resolveBotActor } from './access.ts';
 import { mainMenuKeyboard, type MainMenuOptions } from './keyboards.ts';
@@ -199,6 +199,10 @@ export async function linkCardToCurrentCustomer(ctx: MyContext, code: string) {
     return;
   }
 
+  await promptOwnershipConfirmation(ctx, { action: 'linkCard', code });
+}
+
+export async function completeLinkCardToCurrentCustomer(ctx: MyContext, code: string) {
   const customer = await resolveCurrentCustomer(ctx);
   if (!customer) return;
 
@@ -208,6 +212,32 @@ export async function linkCardToCurrentCustomer(ctx: MyContext, code: string) {
   } catch (error) {
     await ctx.reply(`${userCopy.bot.replies.errorPrefix} ${formatBotErrorMessage(error)}`);
   }
+}
+
+export async function promptOwnershipConfirmation(ctx: MyContext, action: PendingOwnershipConfirmation) {
+  ctx.session.pendingOwnershipConfirmation = action;
+  const copy = userCopy.bot.ownershipConfirmation;
+  const message = action.action === 'linkCard'
+    ? copy.link
+    : action.action === 'acceptTransfer'
+      ? copy.acceptTransfer
+      : copy.transfer;
+  const confirmButton = action.action === 'linkCard'
+    ? copy.linkButton
+    : action.action === 'acceptTransfer'
+      ? copy.acceptTransferButton
+      : copy.transferButton;
+
+  await ctx.reply(message, {
+    reply_markup: {
+      keyboard: [[
+        { text: confirmButton },
+        { text: copy.cancelButton },
+      ]],
+      resize_keyboard: true,
+      one_time_keyboard: true,
+    },
+  });
 }
 
 export async function unlinkCardFromCurrentCustomer(ctx: MyContext, code: string) {

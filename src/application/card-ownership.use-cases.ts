@@ -305,6 +305,12 @@ export class CardOwnershipUseCases {
         throw new CardNotFoundError();
       }
 
+      const transactions = await this.#txRepo.findByCardId(card.id, trx);
+      const transactionIds = transactions.map((tx) => tx.id);
+      if (this.#receiptRepo) {
+        await this.#receiptRepo.deleteByTransactionIds(transactionIds, trx);
+      }
+      await this.#txRepo.deleteByCardId(card.id, trx);
       await this.#ownershipRepo.updateOwner(card.id, customerId, trx);
       await this.#ownershipRepo.markTransferTokenUsed(transferToken.id, trx);
       await this.#ownershipRepo.createTransferEvent({
@@ -314,6 +320,11 @@ export class CardOwnershipUseCases {
         initiatedByCustomerId: transferToken.from_customer_id,
         type: 'OWNER_TRANSFER',
       }, trx);
+      const remainingCards = await this.#ownershipRepo.findCardsByCustomerId(transferToken.from_customer_id, trx);
+      if (remainingCards.length === 0) {
+        await this.#customerRepo.revokeConsent(transferToken.from_customer_id, 'telegram', trx);
+        await this.#customerRepo.deleteIdentity(transferToken.from_customer_id, 'telegram', trx);
+      }
 
       return card;
     });
