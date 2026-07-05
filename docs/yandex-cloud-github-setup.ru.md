@@ -126,6 +126,24 @@ TELEGRAM_WEBHOOK_SECRET=<generated_secret>
 
 Оно должно быть одинаковым в Lockbox и при регистрации Telegram webhook. Старый ручной workflow берёт его из Lockbox и передаёт в `setWebhook`.
 
+## 5a. Сгенерировать secret для HMAC Telegram identifiers
+
+`TELEGRAM_ID_HMAC_SECRET` нужен активному Telegram runtime и release backfill шагу, который переводит существующие Telegram identifiers в детерминированные HMAC lookup values.
+
+Сгенерируйте отдельное значение:
+
+```bash
+openssl rand -hex 32
+```
+
+Сохраните его только в Lockbox:
+
+```text
+TELEGRAM_ID_HMAC_SECRET=<generated_secret>
+```
+
+Не коммитьте и не печатайте это значение в release logs.
+
 ## 6. Создать Object Storage bucket для QR Mini App
 
 QR Mini App должен открываться у пользователя Telegram напрямую из Object Storage. Это снижает зависимость сканера от доступности Serverless Container из сети пользователя.
@@ -162,6 +180,7 @@ cat > lockbox-payload.json <<'JSON'
   {"key":"DB_USER","text_value":"ion_user"},
   {"key":"DB_PASSWORD","text_value":"<db_password>"},
   {"key":"TELEGRAM_BOT_TOKEN","text_value":"<bot_token>"},
+  {"key":"TELEGRAM_ID_HMAC_SECRET","text_value":"<generated_identity_hmac_secret>"},
   {"key":"TELEGRAM_WEBHOOK_SECRET","text_value":"<generated_secret_for_legacy_webhook_workflow>"},
   {"key":"WEB_APP_URL","text_value":"https://storage.yandexcloud.net/ion-gift-card-qr-mini-app-<suffix>/qr.html"}
 ]
@@ -404,7 +423,7 @@ YC_BOT_VM_PUBLIC_NAT=false
 `YC_NETWORK_ID` должен быть ID той VPC network, где находится подсеть Managed PostgreSQL. Workflow передаёт его в `revision-network-id` для API revision, чтобы runtime container мог ходить в PostgreSQL через облачную сеть.
 `YC_SUBNET_ID` должен быть ID подсети для Compute VM с polling bot. VM должна иметь исходящий доступ к Telegram API. Если для подсети настроен VPC NAT gateway, используйте `YC_BOT_VM_PUBLIC_NAT=false`; иначе workflow создаёт public NAT address на network interface.
 
-GitHub secrets для текущего workflow не нужны, если federation настроен корректно. Production secrets (`DB_*`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`, `WEB_APP_URL`) хранятся в Lockbox.
+GitHub secrets для текущего workflow не нужны, если federation настроен корректно. Production secrets (`DB_*`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_ID_HMAC_SECRET`, `TELEGRAM_WEBHOOK_SECRET`, `WEB_APP_URL`) хранятся в Lockbox.
 
 ## 14. Запустить первый релиз
 
