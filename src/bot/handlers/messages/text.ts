@@ -11,14 +11,18 @@ import {
 import { requireBotOperator } from '../access.ts';
 import { mainMenuKeyboard, replyScanPrompt } from '../keyboards.ts';
 import {
+  completeLinkCardToCurrentCustomer,
   createPersonalCardForCurrentCustomer,
   linkCardToCurrentCustomer,
+  promptOwnershipConfirmation,
   resolveCurrentCustomer,
   unlinkCardFromCurrentCustomer,
   unlinkCurrentCardFromCurrentCustomer,
 } from '../card-replies.ts';
 import { handleMenuButton, handlePendingMenuAction } from '../menu-handlers.ts';
 import { resolveBotActor } from '../access.ts';
+import { acceptTransferForCurrentCustomer } from '../commands/accept-transfer.ts';
+import { startTransferForCurrentCustomer } from '../commands/transfer.ts';
 
 async function handlePersonalDataConsentResponse(
   ctx: MyContext,
@@ -58,7 +62,7 @@ async function handlePersonalDataConsentResponse(
 
   if (pending.action === 'linkCard') {
     if (pending.code) {
-      await linkCardToCurrentCustomer(ctx, pending.code);
+      await promptOwnershipConfirmation(ctx, { action: 'linkCard', code: pending.code });
       return true;
     }
 
@@ -76,12 +80,44 @@ async function handlePersonalDataConsentResponse(
     return true;
   }
 
-  try {
-    const card = await cardOwnershipService.acceptTransfer(customer.id, pending.token);
-    await ctx.reply(`${userCopy.bot.operations.accepted}\n${userCopy.bot.cards.card}: ${card.code}\n${userCopy.bot.cards.balance}: ${card.balance} ₽`);
-  } catch (error) {
-    await ctx.reply(`${userCopy.bot.replies.errorPrefix} ${formatBotErrorMessage(error)}`);
+  await promptOwnershipConfirmation(ctx, { action: 'acceptTransfer', token: pending.token });
+  return true;
+}
+
+async function handleOwnershipConfirmationResponse(ctx: MyContext, text: string) {
+  const copy = userCopy.bot.ownershipConfirmation;
+  const pending = ctx.session.pendingOwnershipConfirmation;
+  if (!pending) {
+    return false;
   }
+
+  const confirmButton = pending.action === 'linkCard'
+    ? copy.linkButton
+    : pending.action === 'acceptTransfer'
+      ? copy.acceptTransferButton
+      : copy.transferButton;
+  if (text !== confirmButton && text !== copy.cancelButton) {
+    return false;
+  }
+
+  ctx.session.pendingOwnershipConfirmation = undefined;
+  if (text === copy.cancelButton) {
+    const actor = await resolveBotActor(ctx);
+    await ctx.reply(copy.cancelled, { reply_markup: mainMenuKeyboard(Boolean(actor.operatorId)) });
+    return true;
+  }
+
+  if (pending.action === 'linkCard') {
+    await completeLinkCardToCurrentCustomer(ctx, pending.code);
+    return true;
+  }
+
+  if (pending.action === 'acceptTransfer') {
+    await acceptTransferForCurrentCustomer(ctx, pending.token);
+    return true;
+  }
+
+  await startTransferForCurrentCustomer(ctx, pending.code);
   return true;
 }
 
@@ -116,6 +152,7 @@ export function createTextMessageHandler(telegramConfig: TelegramConfig) {
     const code = ctx.message!.text!.trim();
     if (code.startsWith('/')) return;
     if (await handleUnlinkConfirmationResponse(ctx, code)) return;
+    if (await handleOwnershipConfirmationResponse(ctx, code)) return;
     if (await handlePersonalDataConsentResponse(ctx, code, telegramConfig)) return;
     if (await handleMenuButton(ctx, code, telegramConfig)) return;
     if (await handlePendingMenuAction(ctx, code, telegramConfig)) return;

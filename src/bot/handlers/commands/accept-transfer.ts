@@ -3,7 +3,7 @@ import { userCopy } from '../../../copy.ts';
 import { cardOwnershipService } from '../../../services/index.ts';
 import type { MyContext } from '../../context.ts';
 import { formatBotErrorMessage } from '../../error-copy.ts';
-import { requirePersonalDataConsent, resolveCurrentCustomer } from '../card-replies.ts';
+import { promptOwnershipConfirmation, requirePersonalDataConsent, resolveCurrentCustomer } from '../card-replies.ts';
 
 export async function acceptTransferCommandHandler(ctx: CommandContext<MyContext>) {
   ctx.session.action = undefined;
@@ -17,6 +17,10 @@ export async function acceptTransferCommandHandler(ctx: CommandContext<MyContext
     return;
   }
 
+  await promptOwnershipConfirmation(ctx, { action: 'acceptTransfer', token });
+}
+
+export async function acceptTransferForCurrentCustomer(ctx: MyContext, token: string) {
   const customer = await resolveCurrentCustomer(ctx);
   if (!customer) return;
 

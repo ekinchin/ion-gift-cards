@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { createMyCardCommandHandler } from '../src/bot/handlers/commands/create-my-card.ts';
 import { createLinkCommandHandler } from '../src/bot/handlers/commands/link.ts';
 import { acceptTransferCommandHandler } from '../src/bot/handlers/commands/accept-transfer.ts';
+import { transferCommandHandler } from '../src/bot/handlers/commands/transfer.ts';
 import { handleMenuButton } from '../src/bot/handlers/menu-handlers.ts';
 import { createTextMessageHandler } from '../src/bot/handlers/messages/text.ts';
 import { cardOwnershipService, customerRepository } from '../src/services/index.ts';
@@ -155,6 +156,101 @@ test('/accept_transfer asks for consent before accepting transfer', async () => 
   } finally {
     restoreAccept();
     restoreLookup();
+    restoreResolve();
+  }
+});
+
+test('/link with active consent asks for explicit link confirmation before linking', async () => {
+  const ctx = { ...makeContext(), match: 'ION-CONSENT01' };
+  let linked = false;
+  const restoreResolve = patchMethod(cardOwnershipService, 'resolveCustomer', async () => ({
+    customer: { id: 'customer-1' },
+    identity: {},
+  }));
+  const restoreLookup = patchMethod(customerRepository, 'findByTelegramUserIdHash', async () => ({
+    customer: { id: 'customer-1', created_at: new Date() },
+    identity: {} as never,
+  }));
+  const restoreConsent = patchMethod(customerRepository, 'findActiveConsent', async () => ({} as never));
+  const restoreLink = patchMethod(cardOwnershipService, 'linkCard', async () => {
+    linked = true;
+    return makeCard();
+  });
+
+  try {
+    await createLinkCommandHandler(telegramConfig)(ctx as never);
+
+    assert.equal(linked, false);
+    assert.deepEqual(ctx.session.pendingOwnershipConfirmation, { action: 'linkCard', code: 'ION-CONSENT01' });
+    assert.match(ctx.replies[0]!.text, /Подтвердите/);
+    assert.deepEqual(JSON.parse(JSON.stringify(ctx.replies[0]!.options)).reply_markup.keyboard[0][0], {
+      text: userCopy.bot.ownershipConfirmation.linkButton,
+    });
+  } finally {
+    restoreLink();
+    restoreConsent();
+    restoreLookup();
+    restoreResolve();
+  }
+});
+
+test('/accept_transfer with active consent asks for explicit accept confirmation before accepting', async () => {
+  const ctx = { ...makeContext(), match: 'transfer-token' };
+  let accepted = false;
+  const restoreResolve = patchMethod(cardOwnershipService, 'resolveCustomer', async () => ({
+    customer: { id: 'customer-1' },
+    identity: {},
+  }));
+  const restoreLookup = patchMethod(customerRepository, 'findByTelegramUserIdHash', async () => ({
+    customer: { id: 'customer-1', created_at: new Date() },
+    identity: {} as never,
+  }));
+  const restoreConsent = patchMethod(customerRepository, 'findActiveConsent', async () => ({} as never));
+  const restoreAccept = patchMethod(cardOwnershipService, 'acceptTransfer', async () => {
+    accepted = true;
+    return makeCard();
+  });
+
+  try {
+    await acceptTransferCommandHandler(ctx as never);
+
+    assert.equal(accepted, false);
+    assert.deepEqual(ctx.session.pendingOwnershipConfirmation, { action: 'acceptTransfer', token: 'transfer-token' });
+    assert.match(ctx.replies[0]!.text, /история операций прежнего владельца будет удалена/);
+    assert.deepEqual(JSON.parse(JSON.stringify(ctx.replies[0]!.options)).reply_markup.keyboard[0][0], {
+      text: userCopy.bot.ownershipConfirmation.acceptTransferButton,
+    });
+  } finally {
+    restoreAccept();
+    restoreConsent();
+    restoreLookup();
+    restoreResolve();
+  }
+});
+
+test('/transfer asks for explicit transfer confirmation before creating token', async () => {
+  const ctx = { ...makeContext(), match: 'ION-CONSENT01' };
+  let transferStarted = false;
+  const restoreResolve = patchMethod(cardOwnershipService, 'resolveCustomer', async () => ({
+    customer: { id: 'customer-1' },
+    identity: {},
+  }));
+  const restoreStart = patchMethod(cardOwnershipService, 'startTransfer', async () => {
+    transferStarted = true;
+    return { card: makeCard(), token: 'transfer-token', expiresAt: new Date('2026-07-05T12:00:00.000Z') };
+  });
+
+  try {
+    await transferCommandHandler(ctx as never);
+
+    assert.equal(transferStarted, false);
+    assert.deepEqual(ctx.session.pendingOwnershipConfirmation, { action: 'transferCard', code: 'ION-CONSENT01' });
+    assert.match(ctx.replies[0]!.text, /история операций прежнего владельца будет удалена/);
+    assert.deepEqual(JSON.parse(JSON.stringify(ctx.replies[0]!.options)).reply_markup.keyboard[0][0], {
+      text: userCopy.bot.ownershipConfirmation.transferButton,
+    });
+  } finally {
+    restoreStart();
     restoreResolve();
   }
 });

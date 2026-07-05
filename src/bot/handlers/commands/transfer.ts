@@ -3,7 +3,7 @@ import { userCopy } from '../../../copy.ts';
 import { cardOwnershipService } from '../../../services/index.ts';
 import type { MyContext } from '../../context.ts';
 import { formatBotErrorMessage } from '../../error-copy.ts';
-import { resolveCurrentCustomer } from '../card-replies.ts';
+import { promptOwnershipConfirmation, resolveCurrentCustomer } from '../card-replies.ts';
 
 export async function transferCommandHandler(ctx: CommandContext<MyContext>) {
   ctx.session.action = undefined;
@@ -20,6 +20,13 @@ export async function transferCommandHandler(ctx: CommandContext<MyContext>) {
     }
     code = card.code;
   }
+
+  await promptOwnershipConfirmation(ctx, { action: 'transferCard', code });
+}
+
+export async function startTransferForCurrentCustomer(ctx: MyContext, code: string) {
+  const customer = await resolveCurrentCustomer(ctx);
+  if (!customer) return;
 
   try {
     const { card, token, expiresAt } = await cardOwnershipService.startTransfer(customer.id, code);

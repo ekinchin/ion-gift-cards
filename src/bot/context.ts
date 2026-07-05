@@ -21,11 +21,17 @@ export type PendingConsentAction =
   | { action: 'linkCard'; code?: string }
   | { action: 'acceptTransfer'; token: string };
 
+export type PendingOwnershipConfirmation =
+  | { action: 'linkCard'; code: string }
+  | { action: 'acceptTransfer'; token: string }
+  | { action: 'transferCard'; code: string };
+
 export interface SessionData {
   action?: PendingMenuAction;
   cardCode?: string;
   pendingCardOperation?: PendingCardOperation;
   pendingConsentAction?: PendingConsentAction;
+  pendingOwnershipConfirmation?: PendingOwnershipConfirmation;
   pendingUnlinkConfirmation?: { code?: string };
   pendingReceipt?: PendingReceiptAttachment;
 }

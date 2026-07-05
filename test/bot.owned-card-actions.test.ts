@@ -3,11 +3,13 @@ import assert from 'node:assert/strict';
 import type { Card, Transaction } from '../src/types/index.ts';
 import { cardOwnershipService, cardService, customerRepository, operatorRepository } from '../src/services/index.ts';
 import { handleMenuButton, handlePendingMenuAction } from '../src/bot/handlers/menu-handlers.ts';
+import { createTextMessageHandler } from '../src/bot/handlers/messages/text.ts';
 import { createLinkCommandHandler } from '../src/bot/handlers/commands/link.ts';
 import { startCommandHandler } from '../src/bot/handlers/commands/start.ts';
 import { unlinkCommandHandler } from '../src/bot/handlers/commands/unlink.ts';
 import { menuButtonLabels } from '../src/bot/menu.ts';
 import { NoOwnedCardsError } from '../src/application/errors.ts';
+import { userCopy } from '../src/copy.ts';
 
 const now = new Date('2026-06-28T10:00:00.000Z');
 const telegramConfig = { token: 'token', webAppUrl: 'https://example.com/qr' };
@@ -339,7 +341,7 @@ test('link command without a code shows the existing card instead of a scan prom
   }
 });
 
-test('menu link manually entered code links the card instead of showing public balance', async () => {
+test('menu link manually entered code asks for confirmation before linking', async () => {
   const card = makeCard();
   const ctx = makeContext();
   const restoreOperator = patchMethod(operatorRepository, 'findByTelegramUserIdHash', async () => null);
@@ -368,6 +370,15 @@ test('menu link manually entered code links the card instead of showing public b
 
     assert.equal(pendingHandled, true);
     assert.equal(ctx.session.action, undefined);
+    assert.deepEqual(ctx.session.pendingOwnershipConfirmation, { action: 'linkCard', code: card.code });
+    assert.match(ctx.replies.at(-1)!.text, /Подтвердите привязку/);
+
+    await createTextMessageHandler(telegramConfig as never)({
+      ...ctx,
+      message: { text: userCopy.bot.ownershipConfirmation.linkButton },
+    } as never);
+
+    assert.equal(ctx.session.pendingOwnershipConfirmation, undefined);
     assert.match(ctx.replies.at(-1)!.text, /Карта привязана/);
     assert.match(ctx.replies.at(-1)!.text, new RegExp(card.code));
     assert.match(ctx.replies.at(-1)!.text, new RegExp(String(card.balance)));

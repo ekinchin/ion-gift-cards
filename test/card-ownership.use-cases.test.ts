@@ -611,6 +611,66 @@ test('acceptTransfer moves ownership and marks the token used', async () => {
   });
 });
 
+test('acceptTransfer deletes previous owner history while preserving card balance', async () => {
+  const { useCases, cards, owners, tokens, transactions, receipts } = makeUseCases();
+  cards.set('card-1', makeCard({ balance: 750, initial_amount: 1000 }));
+  owners.set('card-1', { card_id: 'card-1', customer_id: 'customer-1', linked_at: now });
+  transactions.set('card-1', [
+    {
+      id: 'tx-1',
+      card_id: 'card-1',
+      type: 'CREDIT',
+      amount: 1000,
+      balance_after: 1000,
+      description: 'Initial top-up',
+      operator_id: 'operator-1',
+      created_at: now,
+    },
+    {
+      id: 'tx-2',
+      card_id: 'card-1',
+      type: 'DEBIT',
+      amount: 250,
+      balance_after: 750,
+      description: 'Old owner purchase',
+      operator_id: 'operator-1',
+      created_at: now,
+    },
+  ]);
+  receipts.set('tx-1', {
+    id: 'receipt-1',
+    transaction_id: 'tx-1',
+    receipt_url: 'https://example.test/receipt-1',
+    status: 'verified',
+    fiscal_fn: 'fn',
+    fiscal_fd: 'fd',
+    fiscal_fp: 'fp',
+    total: 1000,
+    verified_at: now,
+    verification_error: null,
+    skip_reason: null,
+    skip_comment: null,
+    created_at: now,
+    updated_at: now,
+  });
+  tokens.set('transfer-token', {
+    id: 'token-1',
+    token: 'transfer-token',
+    card_id: 'card-1',
+    from_customer_id: 'customer-1',
+    expires_at: new Date('2026-06-25T10:15:00.000Z'),
+    used_at: null,
+    created_at: now,
+  });
+
+  const card = await useCases.acceptTransfer('customer-2', 'transfer-token');
+
+  assert.equal(card.balance, 750);
+  assert.equal(owners.get('card-1')?.customer_id, 'customer-2');
+  assert.equal(transactions.has('card-1'), false);
+  assert.equal(receipts.size, 0);
+});
+
 test('acceptTransfer rejects when the card owner changed after token creation', async () => {
   const { useCases, cards, owners, tokens } = makeUseCases();
   cards.set('card-1', makeCard());
