@@ -64,7 +64,6 @@ export interface CustomerIdentity {
   id: string;
   customer_id: string;
   provider: IdentityProvider;
-  provider_user_id: string;
   telegram_user_id_hmac: string | null;
   personal_data_consent_at: Date | null;
   personal_data_consent_revoked_at: Date | null;

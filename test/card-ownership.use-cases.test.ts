@@ -33,7 +33,6 @@ function makeIdentity(customerId = 'customer-1'): CustomerIdentity {
     id: 'identity-1',
     customer_id: customerId,
     provider: 'telegram',
-    provider_user_id: '1001',
     telegram_user_id_hmac: 'hash-1001',
     personal_data_consent_at: now,
     personal_data_consent_revoked_at: null,

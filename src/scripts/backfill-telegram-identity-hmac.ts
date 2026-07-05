@@ -6,7 +6,7 @@ import { hashTelegramUserId } from '../telegram/telegram-identity.ts';
 
 export interface TelegramIdentityBackfillDb {
   transaction<T>(callback: (trx: TelegramIdentityBackfillDb) => Promise<T>): Promise<T>;
-  listCustomerIdentitiesMissingTelegramHmac(): Promise<Array<{ id: string; provider_user_id: string }>>;
+  listCustomerIdentitiesMissingTelegramHmac(): Promise<Array<{ id: string; provider_user_id?: string }>>;
   updateCustomerIdentityTelegramHmac(id: string, telegramUserIdHmac: string): Promise<void>;
   listOperatorsMissingTelegramHmac(): Promise<Array<{ id: string; telegram_id: number }>>;
   updateOperatorTelegramHmac(id: string, telegramUserIdHmac: string): Promise<void>;
@@ -33,6 +33,11 @@ class KnexTelegramIdentityBackfillDb implements TelegramIdentityBackfillDb {
   }
 
   async listCustomerIdentitiesMissingTelegramHmac() {
+    const hasProviderUserId = await this.#client.schema.hasColumn('customer_identities', 'provider_user_id');
+    if (!hasProviderUserId) {
+      return [];
+    }
+
     return this.#client('customer_identities')
       .select('id', 'provider_user_id')
       .where({ provider: 'telegram' })
@@ -83,6 +88,10 @@ export async function backfillTelegramIdentityHmac(options: {
 
     const identities = await trx.listCustomerIdentitiesMissingTelegramHmac();
     for (const identity of identities) {
+      if (!identity.provider_user_id) {
+        continue;
+      }
+
       await trx.updateCustomerIdentityTelegramHmac(
         identity.id,
         hashTelegramUserId(identity.provider_user_id, options.identityHmacSecret)

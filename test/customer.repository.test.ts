@@ -30,7 +30,7 @@ test('customer repository resolves the same provider identity to the same custom
   assert.equal(second.customer.id, first.customer.id);
   assert.equal(second.identity.id, first.identity.id);
   assert.equal(second.identity.telegram_user_id_hmac, 'hash-1001');
-  assert.equal(second.identity.provider_user_id, 'hmac:hash-1001');
+  assert.equal('provider_user_id' in second.identity, false);
   assert.equal(second.identity.username, null);
   assert.equal(second.identity.display_name, null);
 });

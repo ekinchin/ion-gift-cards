@@ -74,7 +74,6 @@ export class CustomerRepository {
       .insert({
         customer_id: customer.id,
         provider: data.provider,
-        provider_user_id: `hmac:${data.telegramUserIdHash}`,
         telegram_user_id_hmac: data.telegramUserIdHash,
         username: null,
         display_name: null,

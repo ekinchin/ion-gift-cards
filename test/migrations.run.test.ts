@@ -111,3 +111,25 @@ test('telegram personal data consent migration adds transition columns after rec
   assert.match(consentSql, /ADD COLUMN IF NOT EXISTS telegram_user_id_hmac TEXT/i);
   assert.match(consentSql, /CREATE UNIQUE INDEX IF NOT EXISTS idx_operators_telegram_user_id_hmac/i);
 });
+
+test('customer Telegram privacy cleanup migration drops raw provider user id', async () => {
+  const migrationsDir = join(import.meta.dirname, '..', 'src', 'db', 'migrations');
+  const migrationFiles = readdirSync(migrationsDir)
+    .filter((file) => file.endsWith('.sql'))
+    .sort();
+
+  assert.equal(
+    migrationFiles.indexOf('006_drop_customer_identity_provider_user_id.sql'),
+    migrationFiles.indexOf('005_telegram_personal_data_consent.sql') + 1
+  );
+
+  const privacyCleanupSql = readFileSync(
+    join(migrationsDir, '006_drop_customer_identity_provider_user_id.sql'),
+    'utf8'
+  );
+
+  assert.match(privacyCleanupSql, /ALTER TABLE customer_identities/i);
+  assert.match(privacyCleanupSql, /DROP CONSTRAINT IF EXISTS customer_identities_provider_provider_user_id_key/i);
+  assert.match(privacyCleanupSql, /DROP COLUMN IF EXISTS provider_user_id/i);
+  assert.doesNotMatch(privacyCleanupSql, /operators\s+.*DROP COLUMN/i);
+});

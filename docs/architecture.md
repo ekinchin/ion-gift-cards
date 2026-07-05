@@ -43,7 +43,7 @@ Gift cards keep the current split between the internal `cards.id` and public `ca
 The next ownership model adds provider-neutral customers:
 
 - `customers` stores internal customer records.
-- `customer_identities` maps customers to external accounts with `provider` and `provider_user_id`; Telegram is only the first provider.
+- `customer_identities` maps customers to external accounts with `provider` and `telegram_user_id_hmac`; Telegram raw user IDs are not stored for customers.
 - `card_owners` stores the current owner of a card. The current product model allows one owner per card and one current card per customer.
 - `card_transfer_tokens` and `card_owner_transfers` support owner-initiated transfers and audit history.
 

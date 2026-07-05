@@ -33,7 +33,7 @@ Application use cases владеют бизнес-операциями и гра
 Модель владения добавляет provider-neutral клиентов:
 
 - `customers` хранит внутренние записи клиентов.
-- `customer_identities` связывает клиентов с внешними аккаунтами через `provider` и `provider_user_id`; Telegram сейчас является только первым провайдером.
+- `customer_identities` связывает клиентов с внешними аккаунтами через `provider` и `telegram_user_id_hmac`; открытый Telegram ID для клиентов не хранится.
 - `card_owners` хранит текущего владельца карты. Текущая продуктовая модель допускает одного владельца на карту и одну текущую карту на клиента.
 - `card_transfer_tokens` и `card_owner_transfers` поддерживают передачи, инициированные владельцем, и audit history.
 
