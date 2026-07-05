@@ -17,6 +17,8 @@ interface Actor {
 
 Actor может быть без идентичности, с customer identity, с operator identity или с обеими сразу. Telegram users — это adapter-specific ввод; перед проверками доступа они должны быть преобразованы в `Actor`.
 
+Telegram adapter не должен передавать raw Telegram user id в application authorization. На границе адаптера Telegram user id преобразуется в `HMAC-SHA256(TELEGRAM_ID_HMAC_SECRET, telegram_user_id)`, после чего repositories находят внутренние `customers.id` или `operators.id`. Application-код и policy functions работают только с внутренними actor ids.
+
 `operator` — глобальный источник прав. Текущие операторы могут выполнять cash-register операции с картами: debit, credit, создание gift card и просмотр истории owned card.
 
 `owner` — не глобальная роль. Владение — это отношение между customer и конкретной card, которое хранится в `card_owners`. Customer может быть owner для одной card и non-owner для другой.
@@ -29,7 +31,7 @@ Actor может быть без идентичности, с customer identity,
 4. Policy function проверяет `actor + action + resource`.
 5. Use case продолжает бизнес-логику или выбрасывает application error.
 
-Для Telegram bot requests `src/bot/handlers/access.ts` определяет operator identity и предоставляет helpers вроде `requireBotOperator`.
+Для Telegram bot requests `src/bot/handlers/access.ts` определяет operator identity через HMAC lookup и предоставляет helpers вроде `requireBotOperator`.
 
 Текущий HTTP API карт публикует только публичную проверку баланса и не преобразует запросы в `Actor`.
 
