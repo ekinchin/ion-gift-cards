@@ -160,7 +160,7 @@ test('/accept_transfer asks for consent before accepting transfer', async () => 
   }
 });
 
-test('/link with active consent asks for explicit link confirmation before linking', async () => {
+test('/link with active consent links immediately without extra confirmation', async () => {
   const ctx = { ...makeContext(), match: 'ION-CONSENT01' };
   let linked = false;
   const restoreResolve = patchMethod(cardOwnershipService, 'resolveCustomer', async () => ({
@@ -180,12 +180,10 @@ test('/link with active consent asks for explicit link confirmation before linki
   try {
     await createLinkCommandHandler(telegramConfig)(ctx as never);
 
-    assert.equal(linked, false);
-    assert.deepEqual(ctx.session.pendingOwnershipConfirmation, { action: 'linkCard', code: 'ION-CONSENT01' });
-    assert.match(ctx.replies[0]!.text, /Подтвердите/);
-    assert.deepEqual(JSON.parse(JSON.stringify(ctx.replies[0]!.options)).reply_markup.keyboard[0][0], {
-      text: userCopy.bot.ownershipConfirmation.linkButton,
-    });
+    assert.equal(linked, true);
+    assert.equal(ctx.session.pendingOwnershipConfirmation, undefined);
+    assert.match(ctx.replies[0]!.text, /Карта привязана/);
+    assert.match(ctx.replies[0]!.text, /ION-CONSENT01/);
   } finally {
     restoreLink();
     restoreConsent();

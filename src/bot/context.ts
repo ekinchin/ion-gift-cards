@@ -22,7 +22,6 @@ export type PendingConsentAction =
   | { action: 'acceptTransfer'; token: string };
 
 export type PendingOwnershipConfirmation =
-  | { action: 'linkCard'; code: string }
   | { action: 'acceptTransfer'; token: string }
   | { action: 'transferCard'; code: string };
 

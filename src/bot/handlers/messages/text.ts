@@ -11,7 +11,6 @@ import {
 import { requireBotOperator } from '../access.ts';
 import { mainMenuKeyboard, replyScanPrompt } from '../keyboards.ts';
 import {
-  completeLinkCardToCurrentCustomer,
   createPersonalCardForCurrentCustomer,
   linkCardToCurrentCustomer,
   promptOwnershipConfirmation,
@@ -62,7 +61,7 @@ async function handlePersonalDataConsentResponse(
 
   if (pending.action === 'linkCard') {
     if (pending.code) {
-      await promptOwnershipConfirmation(ctx, { action: 'linkCard', code: pending.code });
+      await linkCardToCurrentCustomer(ctx, pending.code);
       return true;
     }
 
@@ -91,11 +90,9 @@ async function handleOwnershipConfirmationResponse(ctx: MyContext, text: string)
     return false;
   }
 
-  const confirmButton = pending.action === 'linkCard'
-    ? copy.linkButton
-    : pending.action === 'acceptTransfer'
-      ? copy.acceptTransferButton
-      : copy.transferButton;
+  const confirmButton = pending.action === 'acceptTransfer'
+    ? copy.acceptTransferButton
+    : copy.transferButton;
   if (text !== confirmButton && text !== copy.cancelButton) {
     return false;
   }
@@ -104,11 +101,6 @@ async function handleOwnershipConfirmationResponse(ctx: MyContext, text: string)
   if (text === copy.cancelButton) {
     const actor = await resolveBotActor(ctx);
     await ctx.reply(copy.cancelled, { reply_markup: mainMenuKeyboard(Boolean(actor.operatorId)) });
-    return true;
-  }
-
-  if (pending.action === 'linkCard') {
-    await completeLinkCardToCurrentCustomer(ctx, pending.code);
     return true;
   }
 
