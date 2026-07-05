@@ -2,9 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { unlinkCommandHandler } from '../src/bot/handlers/commands/unlink.ts';
 import { createTextMessageHandler } from '../src/bot/handlers/messages/text.ts';
-import { cardOwnershipService } from '../src/services/index.ts';
+import { cardOwnershipService, operatorRepository } from '../src/services/index.ts';
 import { userCopy } from '../src/copy.ts';
 import type { Card } from '../src/types/index.ts';
+import { menuButtonLabels } from '../src/bot/menu.ts';
 
 const telegramConfig = {
   mode: 'polling' as const,
@@ -26,7 +27,7 @@ function makeCard(): Card {
 
 function makeContext(text?: string) {
   const replies: Array<{ text: string; options?: unknown }> = [];
-  const photos: Array<{ caption?: string }> = [];
+  const photos: Array<{ caption?: string; options?: unknown }> = [];
   return {
     from: { id: 1001, first_name: 'Test' },
     message: text ? { text } : undefined,
@@ -38,7 +39,7 @@ function makeContext(text?: string) {
       replies.push({ text: replyText, options });
     },
     async replyWithPhoto(_photo: unknown, options?: { caption?: string }) {
-      photos.push({ caption: options?.caption });
+      photos.push({ caption: options?.caption, options });
     },
   };
 }
@@ -99,6 +100,7 @@ test('confirming unlink performs unlink and returns QR recovery data', async () 
     identity: {},
   }));
   const restoreUnlink = patchMethod(cardOwnershipService, 'unlinkCurrentCard', async () => makeCard());
+  const restoreOperator = patchMethod(operatorRepository, 'findByTelegramUserIdHash', async () => null);
 
   try {
     await createTextMessageHandler(telegramConfig)(ctx as never);
@@ -109,7 +111,20 @@ test('confirming unlink performs unlink and returns QR recovery data', async () 
     assert.match(ctx.photos[0]!.caption!, /Карта отвязана/);
     assert.match(ctx.photos[0]!.caption!, /ION-UNLINK01/);
     assert.match(ctx.photos[0]!.caption!, /500/);
+    const keyboard = JSON.parse(JSON.stringify(ctx.photos[0]!.options)).reply_markup.keyboard
+      .flat()
+      .map((button: { text: string }) => button.text);
+    assert.deepEqual(keyboard, [
+      menuButtonLabels.balance,
+      menuButtonLabels.history,
+      menuButtonLabels.mycards,
+      menuButtonLabels.createPersonal,
+      menuButtonLabels.link,
+    ]);
+    assert.equal(keyboard.includes(userCopy.bot.unlinkPrivacy.confirmButton), false);
+    assert.equal(keyboard.includes(userCopy.bot.unlinkPrivacy.cancelButton), false);
   } finally {
+    restoreOperator();
     restoreUnlink();
     restoreResolve();
   }

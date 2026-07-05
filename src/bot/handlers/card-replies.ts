@@ -6,7 +6,7 @@ import { replyWithCardQr } from '../card-qr.ts';
 import type { MyContext, PendingConsentAction } from '../context.ts';
 import { formatBotErrorMessage } from '../error-copy.ts';
 import { resolveBotActor } from './access.ts';
-import type { MainMenuOptions } from './keyboards.ts';
+import { mainMenuKeyboard, type MainMenuOptions } from './keyboards.ts';
 import type { TransactionWithReceipt } from '../../types/index.ts';
 import { formatReceiptVerificationError } from '../receipt-flow.ts';
 
@@ -216,7 +216,10 @@ export async function unlinkCardFromCurrentCustomer(ctx: MyContext, code: string
 
   try {
     const card = await cardOwnershipService.unlinkCard(customer.id, code);
-    await replyWithCardQr(ctx, userCopy.bot.cardQr.unlinked, card);
+    const actor = await resolveBotActor(ctx);
+    await replyWithCardQr(ctx, userCopy.bot.cardQr.unlinked, card, {
+      reply_markup: mainMenuKeyboard(Boolean(actor.operatorId), { hasLinkedCard: false }),
+    });
   } catch (error) {
     await ctx.reply(`${userCopy.bot.replies.errorPrefix} ${formatBotErrorMessage(error)}`);
   }
@@ -242,7 +245,10 @@ export async function unlinkCurrentCardFromCurrentCustomer(ctx: MyContext) {
 
   try {
     const card = await cardOwnershipService.unlinkCurrentCard(customer.id);
-    await replyWithCardQr(ctx, userCopy.bot.cardQr.unlinked, card);
+    const actor = await resolveBotActor(ctx);
+    await replyWithCardQr(ctx, userCopy.bot.cardQr.unlinked, card, {
+      reply_markup: mainMenuKeyboard(Boolean(actor.operatorId), { hasLinkedCard: false }),
+    });
   } catch (error) {
     await ctx.reply(`${userCopy.bot.replies.errorPrefix} ${formatBotErrorMessage(error)}`);
   }
