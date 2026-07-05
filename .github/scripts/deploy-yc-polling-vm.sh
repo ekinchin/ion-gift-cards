@@ -137,6 +137,7 @@ fi
   echo "DB_POOL_MIN=__DB_POOL_MIN__"
   echo "DB_POOL_MAX=__DB_POOL_MAX__"
   echo "TELEGRAM_BOT_TOKEN=$(read_secret TELEGRAM_BOT_TOKEN)"
+  echo "TELEGRAM_ID_HMAC_SECRET=$(read_secret TELEGRAM_ID_HMAC_SECRET)"
   echo "WEB_APP_URL=${web_app_url}"
 } > "$env_file"
 

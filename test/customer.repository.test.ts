@@ -20,21 +20,37 @@ test('customer repository resolves the same provider identity to the same custom
 
   const first = await repository.resolveOrCreateIdentity({
     provider: 'telegram',
-    providerUserId: '1001',
-    username: 'alice',
-    displayName: 'Alice',
+    telegramUserIdHash: 'hash-1001',
   });
   const second = await repository.resolveOrCreateIdentity({
     provider: 'telegram',
-    providerUserId: '1001',
-    username: 'alice2',
-    displayName: 'Alice Updated',
+    telegramUserIdHash: 'hash-1001',
   });
 
   assert.equal(second.customer.id, first.customer.id);
   assert.equal(second.identity.id, first.identity.id);
-  assert.equal(second.identity.username, 'alice2');
-  assert.equal(second.identity.display_name, 'Alice Updated');
+  assert.equal(second.identity.telegram_user_id_hmac, 'hash-1001');
+  assert.equal(second.identity.provider_user_id, 'hmac:hash-1001');
+  assert.equal(second.identity.username, null);
+  assert.equal(second.identity.display_name, null);
+});
+
+test('customer repository records and revokes Telegram personal data consent', { skip: !runDbTests }, async () => {
+  const repository = new CustomerRepository();
+  const { customer } = await repository.resolveOrCreateIdentity({
+    provider: 'telegram',
+    telegramUserIdHash: 'hash-consent',
+  });
+
+  assert.equal(await repository.findActiveConsent(customer.id, 'telegram'), null);
+
+  const consented = await repository.recordConsent(customer.id, 'telegram');
+  assert.equal(consented.personal_data_consent_revoked_at, null);
+  assert.ok(consented.personal_data_consent_at);
+  assert.ok(await repository.findActiveConsent(customer.id, 'telegram'));
+
+  await repository.revokeConsent(customer.id, 'telegram');
+  assert.equal(await repository.findActiveConsent(customer.id, 'telegram'), null);
 });
 
 test('card ownership repository links one card to one customer and lists owned cards', { skip: !runDbTests }, async () => {
@@ -43,7 +59,7 @@ test('card ownership repository links one card to one customer and lists owned c
   const cardRepository = new CardRepository();
   const { customer } = await customerRepository.resolveOrCreateIdentity({
     provider: 'telegram',
-    providerUserId: '2002',
+    telegramUserIdHash: 'hash-2002',
   });
   const card = await cardRepository.create('CARD-OWNED', 1000);
 

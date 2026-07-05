@@ -1,6 +1,6 @@
 import type { TelegramConfig } from '../../../configuration/configuration-service.ts';
 import { userCopy } from '../../../copy.ts';
-import { cardService, transactionReceiptService } from '../../../services/index.ts';
+import { cardOwnershipService, cardService, customerRepository, transactionReceiptService } from '../../../services/index.ts';
 import type { MyContext } from '../../context.ts';
 import { formatBotErrorMessage } from '../../error-copy.ts';
 import {
@@ -9,13 +9,114 @@ import {
   promptForReceiptAttachment,
 } from '../../receipt-flow.ts';
 import { requireBotOperator } from '../access.ts';
-import { mainMenuKeyboard } from '../keyboards.ts';
+import { mainMenuKeyboard, replyScanPrompt } from '../keyboards.ts';
+import {
+  createPersonalCardForCurrentCustomer,
+  linkCardToCurrentCustomer,
+  resolveCurrentCustomer,
+  unlinkCardFromCurrentCustomer,
+  unlinkCurrentCardFromCurrentCustomer,
+} from '../card-replies.ts';
 import { handleMenuButton, handlePendingMenuAction } from '../menu-handlers.ts';
+import { resolveBotActor } from '../access.ts';
+
+async function handlePersonalDataConsentResponse(
+  ctx: MyContext,
+  text: string,
+  telegramConfig: TelegramConfig
+) {
+  const copy = userCopy.bot.personalDataConsent;
+  if (text !== copy.acceptButton && text !== copy.declineButton) {
+    return false;
+  }
+
+  const pending = ctx.session.pendingConsentAction;
+  if (!pending) {
+    return false;
+  }
+
+  if (text === copy.declineButton) {
+    ctx.session.pendingConsentAction = undefined;
+    ctx.session.action = undefined;
+    await ctx.reply(copy.declined, { reply_markup: mainMenuKeyboard(false) });
+    return true;
+  }
+
+  const customer = await resolveCurrentCustomer(ctx);
+  if (!customer) {
+    return true;
+  }
+
+  await customerRepository.recordConsent(customer.id, 'telegram');
+  ctx.session.pendingConsentAction = undefined;
+  await ctx.reply(copy.accepted);
+
+  if (pending.action === 'createPersonalCard') {
+    await createPersonalCardForCurrentCustomer(ctx);
+    return true;
+  }
+
+  if (pending.action === 'linkCard') {
+    if (pending.code) {
+      await linkCardToCurrentCustomer(ctx, pending.code);
+      return true;
+    }
+
+    ctx.session.action = 'link';
+    const actor = await resolveBotActor(ctx);
+    await replyScanPrompt(
+      ctx,
+      telegramConfig,
+      userCopy.bot.prompts.linkScan,
+      { action: 'link' },
+      userCopy.bot.prompts.linkManualFallback,
+      Boolean(actor.operatorId),
+      { hasLinkedCard: false }
+    );
+    return true;
+  }
+
+  try {
+    const card = await cardOwnershipService.acceptTransfer(customer.id, pending.token);
+    await ctx.reply(`${userCopy.bot.operations.accepted}\n${userCopy.bot.cards.card}: ${card.code}\n${userCopy.bot.cards.balance}: ${card.balance} ₽`);
+  } catch (error) {
+    await ctx.reply(`${userCopy.bot.replies.errorPrefix} ${formatBotErrorMessage(error)}`);
+  }
+  return true;
+}
+
+async function handleUnlinkConfirmationResponse(ctx: MyContext, text: string) {
+  const copy = userCopy.bot.unlinkPrivacy;
+  if (text !== copy.confirmButton && text !== copy.cancelButton) {
+    return false;
+  }
+
+  const pending = ctx.session.pendingUnlinkConfirmation;
+  if (!pending) {
+    return false;
+  }
+
+  ctx.session.pendingUnlinkConfirmation = undefined;
+  if (text === copy.cancelButton) {
+    await ctx.reply(copy.cancelled, { reply_markup: mainMenuKeyboard(true) });
+    return true;
+  }
+
+  if (pending.code) {
+    await unlinkCardFromCurrentCustomer(ctx, pending.code);
+    return true;
+  }
+
+  await unlinkCurrentCardFromCurrentCustomer(ctx);
+  return true;
+}
 
 export function createTextMessageHandler(telegramConfig: TelegramConfig) {
   return async (ctx: MyContext) => {
     const code = ctx.message!.text!.trim();
     if (code.startsWith('/')) return;
+    if (await handleUnlinkConfirmationResponse(ctx, code)) return;
+    if (await handlePersonalDataConsentResponse(ctx, code, telegramConfig)) return;
     if (await handleMenuButton(ctx, code, telegramConfig)) return;
     if (await handlePendingMenuAction(ctx, code, telegramConfig)) return;
 

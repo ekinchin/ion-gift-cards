@@ -40,4 +40,8 @@ export class TransactionRepository {
     const tx = await client(trx)('transactions').where({ id }).first();
     return tx || null;
   }
+
+  async deleteByCardId(cardId: string, trx?: Knex.Transaction): Promise<void> {
+    await client(trx)('transactions').where({ card_id: cardId }).delete();
+  }
 }

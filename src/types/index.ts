@@ -65,9 +65,13 @@ export interface CustomerIdentity {
   customer_id: string;
   provider: IdentityProvider;
   provider_user_id: string;
+  telegram_user_id_hmac: string | null;
+  personal_data_consent_at: Date | null;
+  personal_data_consent_revoked_at: Date | null;
   username: string | null;
   display_name: string | null;
   created_at: Date;
+  updated_at: Date | null;
 }
 
 export interface CardOwner {
@@ -101,6 +105,7 @@ export interface CardOwnerTransfer {
 export interface Operator {
   id: string;
   telegram_id: number;
+  telegram_user_id_hmac: string | null;
   name: string;
   is_active: boolean;
   created_at: Date;

@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { readFileSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { migrate, type MigrationDb } from '../src/db/migrations/run.ts';
 
@@ -78,4 +79,35 @@ test('migrate rejects SQL files without a numeric version prefix', async () => {
     () => migrate({ db: fakeDb, migrationsDir }),
     /Migration file must start with a numeric version prefix: initial\.sql/
   );
+});
+
+test('telegram personal data consent migration adds transition columns after receipts migration', async () => {
+  const migrationsDir = join(import.meta.dirname, '..', 'src', 'db', 'migrations');
+  const migrationFiles = readdirSync(migrationsDir)
+    .filter((file) => file.endsWith('.sql'))
+    .sort();
+
+  assert.equal(
+    migrationFiles.indexOf('005_telegram_personal_data_consent.sql'),
+    migrationFiles.indexOf('004_transaction_receipts.sql') + 1
+  );
+
+  const initialSql = readFileSync(join(migrationsDir, '001_initial.sql'), 'utf8');
+  assert.doesNotMatch(initialSql, /telegram_user_id_hmac/);
+  assert.doesNotMatch(initialSql, /personal_data_consent_at/);
+  assert.doesNotMatch(initialSql, /personal_data_consent_revoked_at/);
+
+  const consentSql = readFileSync(
+    join(migrationsDir, '005_telegram_personal_data_consent.sql'),
+    'utf8'
+  );
+
+  assert.match(consentSql, /ALTER TABLE customer_identities/i);
+  assert.match(consentSql, /ADD COLUMN IF NOT EXISTS telegram_user_id_hmac TEXT/i);
+  assert.match(consentSql, /ADD COLUMN IF NOT EXISTS personal_data_consent_at TIMESTAMP/i);
+  assert.match(consentSql, /ADD COLUMN IF NOT EXISTS personal_data_consent_revoked_at TIMESTAMP/i);
+  assert.match(consentSql, /CREATE UNIQUE INDEX IF NOT EXISTS idx_customer_identities_provider_telegram_hmac/i);
+  assert.match(consentSql, /ALTER TABLE operators/i);
+  assert.match(consentSql, /ADD COLUMN IF NOT EXISTS telegram_user_id_hmac TEXT/i);
+  assert.match(consentSql, /CREATE UNIQUE INDEX IF NOT EXISTS idx_operators_telegram_user_id_hmac/i);
 });

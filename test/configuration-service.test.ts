@@ -41,12 +41,14 @@ test('configuration service accepts polling Telegram mode without webhook secret
   const service = ConfigurationService.fromEnv({
     TELEGRAM_MODE: 'polling',
     TELEGRAM_BOT_TOKEN: 'test-token',
+    TELEGRAM_ID_HMAC_SECRET: '12345678901234567890123456789012',
     WEB_APP_URL: 'https://example.test/qr',
   });
 
   assert.deepEqual(service.getTelegramConfig(), {
     mode: 'polling',
     botToken: 'test-token',
+    identityHmacSecret: '12345678901234567890123456789012',
     webAppUrl: 'https://example.test/qr',
   });
 });
@@ -56,6 +58,7 @@ test('configuration service requires webhook secret in webhook Telegram mode', (
     () => ConfigurationService.fromEnv({
       TELEGRAM_MODE: 'webhook',
       TELEGRAM_BOT_TOKEN: 'test-token',
+      TELEGRAM_ID_HMAC_SECRET: '12345678901234567890123456789012',
     }).getTelegramConfig(),
     /TELEGRAM_WEBHOOK_SECRET/
   );
@@ -63,12 +66,14 @@ test('configuration service requires webhook secret in webhook Telegram mode', (
   const service = ConfigurationService.fromEnv({
     TELEGRAM_MODE: 'webhook',
     TELEGRAM_BOT_TOKEN: 'test-token',
+    TELEGRAM_ID_HMAC_SECRET: '12345678901234567890123456789012',
     TELEGRAM_WEBHOOK_SECRET: 'expected-secret',
   });
 
   assert.deepEqual(service.getTelegramConfig(), {
     mode: 'webhook',
     botToken: 'test-token',
+    identityHmacSecret: '12345678901234567890123456789012',
     webhookSecret: 'expected-secret',
   });
 });
@@ -78,8 +83,39 @@ test('configuration service rejects unknown Telegram mode', () => {
     () => ConfigurationService.fromEnv({
       TELEGRAM_MODE: 'disabled',
       TELEGRAM_BOT_TOKEN: 'test-token',
+      TELEGRAM_ID_HMAC_SECRET: '12345678901234567890123456789012',
     }).getTelegramConfig(),
     /TELEGRAM_MODE/
+  );
+});
+
+test('configuration service requires Telegram identity HMAC secret in active Telegram mode', () => {
+  assert.throws(
+    () => ConfigurationService.fromEnv({
+      TELEGRAM_MODE: 'polling',
+      TELEGRAM_BOT_TOKEN: 'test-token',
+    }).getTelegramConfig(),
+    /TELEGRAM_ID_HMAC_SECRET/
+  );
+
+  assert.throws(
+    () => ConfigurationService.fromEnv({
+      TELEGRAM_MODE: 'polling',
+      TELEGRAM_BOT_TOKEN: 'test-token',
+      TELEGRAM_ID_HMAC_SECRET: 'short-secret',
+    }).getTelegramConfig(),
+    /TELEGRAM_ID_HMAC_SECRET/
+  );
+
+  const service = ConfigurationService.fromEnv({
+    TELEGRAM_MODE: 'polling',
+    TELEGRAM_BOT_TOKEN: 'test-token',
+    TELEGRAM_ID_HMAC_SECRET: '12345678901234567890123456789012',
+  });
+
+  assert.equal(
+    service.getTelegramConfig().identityHmacSecret,
+    '12345678901234567890123456789012'
   );
 });
 

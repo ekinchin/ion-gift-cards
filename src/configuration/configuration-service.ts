@@ -9,6 +9,10 @@ const requiredString = z.preprocess(
   (value) => value === '' ? undefined : value,
   z.string().min(1)
 );
+const secretString = z.preprocess(
+  (value) => value === '' ? undefined : value,
+  z.string().min(32)
+);
 
 const portSchema = z.coerce.number().int().min(1).max(65535);
 const poolSizeSchema = z.coerce.number().int().min(0);
@@ -66,11 +70,13 @@ export const configurationSchema = z.object({
     z.object({
       mode: z.literal('polling'),
       botToken: requiredString,
+      identityHmacSecret: secretString,
       webAppUrl: optionalString,
     }),
     z.object({
       mode: z.literal('webhook'),
       botToken: requiredString,
+      identityHmacSecret: secretString,
       webhookSecret: requiredString,
       webAppUrl: optionalString,
     }),
@@ -105,6 +111,7 @@ const envNamesByPath = new Map<string, string>([
   ['database.pool.max', 'DB_POOL_MAX'],
   ['telegram.mode', 'TELEGRAM_MODE'],
   ['telegram.botToken', 'TELEGRAM_BOT_TOKEN'],
+  ['telegram.identityHmacSecret', 'TELEGRAM_ID_HMAC_SECRET'],
   ['telegram.webAppUrl', 'WEB_APP_URL'],
   ['telegram.webhookSecret', 'TELEGRAM_WEBHOOK_SECRET'],
   ['receipt.mode', 'RECEIPT_MODE'],
@@ -159,6 +166,7 @@ function buildTelegramConfig(env: Env): unknown {
   return {
     mode: env.TELEGRAM_MODE,
     botToken: env.TELEGRAM_BOT_TOKEN,
+    identityHmacSecret: env.TELEGRAM_ID_HMAC_SECRET,
     ...(env.TELEGRAM_WEBHOOK_SECRET !== undefined ? { webhookSecret: env.TELEGRAM_WEBHOOK_SECRET } : {}),
     ...(env.WEB_APP_URL !== undefined ? { webAppUrl: env.WEB_APP_URL } : {}),
   };

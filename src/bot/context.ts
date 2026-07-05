@@ -16,10 +16,17 @@ export interface PendingCardOperation {
   description?: string;
 }
 
+export type PendingConsentAction =
+  | { action: 'createPersonalCard' }
+  | { action: 'linkCard'; code?: string }
+  | { action: 'acceptTransfer'; token: string };
+
 export interface SessionData {
   action?: PendingMenuAction;
   cardCode?: string;
   pendingCardOperation?: PendingCardOperation;
+  pendingConsentAction?: PendingConsentAction;
+  pendingUnlinkConfirmation?: { code?: string };
   pendingReceipt?: PendingReceiptAttachment;
 }
 

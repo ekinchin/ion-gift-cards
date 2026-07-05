@@ -72,4 +72,14 @@ export class TransactionReceiptRepository {
       .first();
     return receipt || null;
   }
+
+  async deleteByTransactionIds(transactionIds: string[], trx?: Knex.Transaction): Promise<void> {
+    if (transactionIds.length === 0) {
+      return;
+    }
+
+    await client(trx)('transaction_receipts')
+      .whereIn('transaction_id', transactionIds)
+      .delete();
+  }
 }

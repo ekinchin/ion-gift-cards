@@ -43,4 +43,5 @@ export function createGiftCardCommandHandlerWithConfig(telegramConfig: TelegramC
 export const createGiftCardCommandHandler = createGiftCardCommandHandlerWithConfig({
   mode: 'polling',
   botToken: '',
+  identityHmacSecret: 'local-test-telegram-identity-hmac-secret',
 });

@@ -81,6 +81,7 @@ jobs:
           export_secret DB_USER
           export_secret DB_PASSWORD
           export_secret TELEGRAM_BOT_TOKEN
+          export_secret TELEGRAM_ID_HMAC_SECRET
           export_secret TELEGRAM_WEBHOOK_SECRET
 
       - name: Login to Yandex Cloud Container Registry
@@ -118,8 +119,31 @@ jobs:
             -e DB_SSL \
             -e DB_POOL_MIN \
             -e DB_POOL_MAX \
+            -e TELEGRAM_ID_HMAC_SECRET \
             "$MIGRATIONS_IMAGE" \
             node --experimental-strip-types src/db/migrations/run.ts
+
+      - name: Backfill Telegram identity HMAC values
+        env:
+          DB_SSL: ${{ vars.DB_SSL || 'true' }}
+          DB_POOL_MIN: ${{ vars.DB_POOL_MIN || '0' }}
+          DB_POOL_MAX: ${{ vars.DB_POOL_MAX || '2' }}
+        run: |
+          docker run --rm \
+            -e DB_HOST \
+            -e DB_PORT \
+            -e DB_NAME \
+            -e DB_USER \
+            -e DB_PASSWORD \
+            -e DB_SSL \
+            -e DB_POOL_MIN \
+            -e DB_POOL_MAX \
+            -e TELEGRAM_MODE=webhook \
+            -e TELEGRAM_BOT_TOKEN \
+            -e TELEGRAM_WEBHOOK_SECRET \
+            -e TELEGRAM_ID_HMAC_SECRET \
+            "$MIGRATIONS_IMAGE" \
+            node --experimental-strip-types src/scripts/backfill-telegram-identity-hmac.ts
 
       - name: Deploy API container
         uses: yc-actions/yc-sls-container-deploy@v4
@@ -146,6 +170,7 @@ jobs:
             DB_NAME=${{ vars.YC_LOCKBOX_SECRET_ID }}/latest/DB_NAME
             DB_USER=${{ vars.YC_LOCKBOX_SECRET_ID }}/latest/DB_USER
             DB_PASSWORD=${{ vars.YC_LOCKBOX_SECRET_ID }}/latest/DB_PASSWORD
+            TELEGRAM_ID_HMAC_SECRET=${{ vars.YC_LOCKBOX_SECRET_ID }}/latest/TELEGRAM_ID_HMAC_SECRET
 
       - name: Deploy bot webhook container
         uses: yc-actions/yc-sls-container-deploy@v4
@@ -174,6 +199,7 @@ jobs:
             DB_USER=${{ vars.YC_LOCKBOX_SECRET_ID }}/latest/DB_USER
             DB_PASSWORD=${{ vars.YC_LOCKBOX_SECRET_ID }}/latest/DB_PASSWORD
             TELEGRAM_BOT_TOKEN=${{ vars.YC_LOCKBOX_SECRET_ID }}/latest/TELEGRAM_BOT_TOKEN
+            TELEGRAM_ID_HMAC_SECRET=${{ vars.YC_LOCKBOX_SECRET_ID }}/latest/TELEGRAM_ID_HMAC_SECRET
             TELEGRAM_WEBHOOK_SECRET=${{ vars.YC_LOCKBOX_SECRET_ID }}/latest/TELEGRAM_WEBHOOK_SECRET
             WEB_APP_URL=${{ vars.YC_LOCKBOX_SECRET_ID }}/latest/WEB_APP_URL
 

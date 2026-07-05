@@ -27,22 +27,26 @@ interface CardReader {
 
 interface TransactionReader {
   findByCardId(cardId: string, trx?: Knex.Transaction): Promise<Transaction[]>;
+  deleteByCardId(cardId: string, trx?: Knex.Transaction): Promise<void>;
 }
 
 interface TransactionReceiptReader {
   findByTransactionIds(transactionIds: string[], trx?: Knex.Transaction): Promise<TransactionReceipt[]>;
+  deleteByTransactionIds(transactionIds: string[], trx?: Knex.Transaction): Promise<void>;
 }
 
 interface CustomerIdentityResolver {
   resolveOrCreateIdentity(
     data: {
       provider: IdentityProvider;
-      providerUserId: string;
+      telegramUserIdHash: string;
       username?: string;
       displayName?: string;
     },
     trx?: Knex.Transaction
   ): Promise<{ customer: { id: string }; identity: unknown }>;
+  revokeConsent(customerId: string, provider: IdentityProvider, trx?: Knex.Transaction): Promise<void>;
+  deleteIdentity(customerId: string, provider: IdentityProvider, trx?: Knex.Transaction): Promise<void>;
 }
 
 interface OwnershipStore {
@@ -87,7 +91,7 @@ const MAX_CARD_CODE_GENERATION_ATTEMPTS = 5;
 
 export interface ProviderIdentityInput {
   provider: IdentityProvider;
-  providerUserId: string;
+  telegramUserIdHash: string;
   username?: string;
   displayName?: string;
 }
@@ -327,6 +331,12 @@ export class CardOwnershipUseCases {
         throw new CardOwnershipRequiredError();
       }
 
+      const transactions = await this.#txRepo.findByCardId(card.id, trx);
+      const transactionIds = transactions.map((tx) => tx.id);
+      if (this.#receiptRepo) {
+        await this.#receiptRepo.deleteByTransactionIds(transactionIds, trx);
+      }
+      await this.#txRepo.deleteByCardId(card.id, trx);
       await this.#ownershipRepo.unlinkCard(card.id, trx);
       await this.#ownershipRepo.createTransferEvent({
         cardId: card.id,
@@ -335,6 +345,11 @@ export class CardOwnershipUseCases {
         initiatedByCustomerId,
         type: 'OWNER_UNLINK',
       }, trx);
+      const remainingCards = await this.#ownershipRepo.findCardsByCustomerId(customerId, trx);
+      if (remainingCards.length === 0) {
+        await this.#customerRepo.revokeConsent(customerId, 'telegram', trx);
+        await this.#customerRepo.deleteIdentity(customerId, 'telegram', trx);
+      }
 
       return card;
     });

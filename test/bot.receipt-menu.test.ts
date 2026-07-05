@@ -60,7 +60,7 @@ test('receipt web app completion restores the operator menu keyboard', async () 
   const { bot, apiCalls } = createTestBot({
     pendingReceipt: { transactionId: 'tx-1', operationType: 'CREATE' },
   });
-  const restoreOperator = patchMethod(operatorRepository, 'findByTelegramId', async () => ({
+  const restoreOperator = patchMethod(operatorRepository, 'findByTelegramUserIdHash', async () => ({
     id: 'operator-1',
     telegram_id: 1001,
     name: 'Operator',
@@ -124,7 +124,7 @@ test('failed receipt scan shows localized verification reason', async () => {
   const { bot, apiCalls } = createTestBot({
     pendingReceipt: { transactionId: 'tx-1', operationType: 'DEBIT' },
   });
-  const restoreOperator = patchMethod(operatorRepository, 'findByTelegramId', async () => ({
+  const restoreOperator = patchMethod(operatorRepository, 'findByTelegramUserIdHash', async () => ({
     id: 'operator-1',
     telegram_id: 1001,
     name: 'Operator',
@@ -186,7 +186,7 @@ test('receipt skip completion restores the operator menu keyboard', async () => 
   const { bot, apiCalls } = createTestBot({
     pendingReceipt: { transactionId: 'tx-1', operationType: 'DEBIT' },
   });
-  const restoreOperator = patchMethod(operatorRepository, 'findByTelegramId', async () => ({
+  const restoreOperator = patchMethod(operatorRepository, 'findByTelegramUserIdHash', async () => ({
     id: 'operator-1',
     telegram_id: 1001,
     name: 'Operator',
@@ -253,7 +253,7 @@ test('duplicate receipt scan after credit repeats the applied operation summary'
       balanceAfter: 1500,
     },
   });
-  const restoreOperator = patchMethod(operatorRepository, 'findByTelegramId', async () => ({
+  const restoreOperator = patchMethod(operatorRepository, 'findByTelegramUserIdHash', async () => ({
     id: 'operator-1',
     telegram_id: 1001,
     name: 'Operator',
@@ -306,7 +306,7 @@ test('duplicate receipt scan after debit repeats the applied operation summary',
       balanceAfter: 1200,
     },
   });
-  const restoreOperator = patchMethod(operatorRepository, 'findByTelegramId', async () => ({
+  const restoreOperator = patchMethod(operatorRepository, 'findByTelegramUserIdHash', async () => ({
     id: 'operator-1',
     telegram_id: 1001,
     name: 'Operator',
@@ -353,7 +353,7 @@ test('manual card code after debit scan prompt debits the card', async () => {
   const { bot, apiCalls } = createTestBot({
     pendingCardOperation: { action: 'debit', amount: 100, description: 'coffee' },
   });
-  const restoreOperator = patchMethod(operatorRepository, 'findByTelegramId', async () => ({
+  const restoreOperator = patchMethod(operatorRepository, 'findByTelegramUserIdHash', async () => ({
     id: 'operator-1',
     telegram_id: 1001,
     name: 'Operator',

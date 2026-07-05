@@ -54,6 +54,7 @@ DB_NAME
 DB_USER
 DB_PASSWORD
 TELEGRAM_BOT_TOKEN
+TELEGRAM_ID_HMAC_SECRET
 TELEGRAM_WEBHOOK_SECRET
 WEB_APP_URL
 ```
@@ -71,6 +72,14 @@ openssl rand -hex 32
 ```
 
 The same value must be stored in Lockbox and used when Telegram webhook is registered by `.github/workflows/release.yml`. The current polling workflow does not call `setWebhook`.
+
+`TELEGRAM_ID_HMAC_SECRET` is required by active Telegram runtime and by the release backfill step that converts existing Telegram identifiers to deterministic lookup hashes. Generate it separately and store only the value in Lockbox:
+
+```bash
+openssl rand -hex 32
+```
+
+Do not commit or print this value. A later cleanup migration may remove raw Telegram identifier columns only after the backfill has been verified.
 
 The API container receives:
 
@@ -233,10 +242,11 @@ DB_NAME
 DB_USER
 DB_PASSWORD
 TELEGRAM_BOT_TOKEN
+TELEGRAM_ID_HMAC_SECRET
 WEB_APP_URL
 ```
 
-The workflow masks each value and writes it to `$GITHUB_ENV` for later steps. The API revision receives database secrets through `revision-secrets`; the VM reads its runtime secrets directly from Lockbox during boot.
+The workflow masks each value and writes it to `$GITHUB_ENV` for later steps. The API revision receives database and Telegram identity HMAC secrets through `revision-secrets`; the VM reads its runtime secrets directly from Lockbox during boot.
 
 ## Release Flow
 
@@ -258,6 +268,7 @@ GitHub Actions then:
 7. Logs in to Yandex Container Registry.
 8. Builds and pushes `ion-gift-card-api`, `ion-gift-card-bot-polling`, and `ion-gift-card-migrations` images tagged with the Git tag.
 9. Runs the migrations image before deploying runtime revisions.
+10. Runs `src/scripts/backfill-telegram-identity-hmac.ts` with `TELEGRAM_ID_HMAC_SECRET` from Lockbox before deploying runtime revisions.
 10. Deploys the API Serverless Container revision with Lockbox-backed secrets and `YC_NETWORK_ID`.
 11. Recreates the Compute VM for the long-polling bot. The bot is stateless; durable state stays in PostgreSQL.
 12. Calls Telegram `deleteWebhook` with `drop_pending_updates=false`.
