@@ -1,0 +1,44 @@
+services:
+  postgres:
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_DB: ion_gift_card_test
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - pgdata_test:/var/lib/postgresql/data
+
+  migrations:
+    env_file:
+      - .env.test
+    environment:
+      APP_ENV: test
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ion_gift_card_test
+      DB_SCHEMA: test
+
+  api:
+    env_file:
+      - .env.test
+    environment:
+      APP_ENV: test
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ion_gift_card_test
+      DB_SCHEMA: test
+
+  bot:
+    env_file:
+      - .env.test
+    environment:
+      APP_ENV: test
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ion_gift_card_test
+      DB_SCHEMA: test
+      TELEGRAM_MODE: polling
+
+volumes:
+  pgdata_test:

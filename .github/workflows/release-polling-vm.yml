@@ -5,6 +5,15 @@ on:
     tags:
       - "v*.*.*"
   workflow_dispatch:
+    inputs:
+      target_environment:
+        description: "Deployment environment"
+        required: true
+        default: "preprod"
+        type: choice
+        options:
+          - preprod
+          - production
 
 concurrency:
   group: release-polling-vm-${{ github.ref_name }}
@@ -20,7 +29,7 @@ jobs:
   release:
     name: Build and deploy release
     runs-on: ubuntu-latest
-    environment: production
+    environment: ${{ github.event_name == 'workflow_dispatch' && inputs.target_environment || 'production' }}
     permissions:
       contents: read
       id-token: write
@@ -49,6 +58,8 @@ jobs:
           YC_BOT_VM_DISK_TYPE: ${{ vars.YC_BOT_VM_DISK_TYPE || 'network-hdd' }}
           YC_BOT_VM_PLATFORM: ${{ vars.YC_BOT_VM_PLATFORM || 'standard-v3' }}
           YC_BOT_VM_PUBLIC_NAT: ${{ vars.YC_BOT_VM_PUBLIC_NAT || 'true' }}
+          APP_ENV: ${{ vars.APP_ENV || 'production' }}
+          DB_SCHEMA: ${{ vars.DB_SCHEMA || 'public' }}
           DB_SSL: ${{ vars.DB_SSL || 'true' }}
           DB_POOL_MIN: ${{ vars.DB_POOL_MIN || '0' }}
           DB_POOL_MAX: ${{ vars.DB_POOL_MAX || '2' }}
@@ -77,6 +88,8 @@ jobs:
             YC_BOT_VM_DISK_TYPE
             YC_BOT_VM_PLATFORM
             YC_BOT_VM_PUBLIC_NAT
+            APP_ENV
+            DB_SCHEMA
             DB_SSL
             DB_POOL_MIN
             DB_POOL_MAX
@@ -226,11 +239,15 @@ jobs:
 
       - name: Run database migrations
         env:
+          APP_ENV: ${{ vars.APP_ENV || 'production' }}
+          DB_SCHEMA: ${{ vars.DB_SCHEMA || 'public' }}
           DB_SSL: ${{ vars.DB_SSL || 'true' }}
           DB_POOL_MIN: ${{ vars.DB_POOL_MIN || '0' }}
           DB_POOL_MAX: ${{ vars.DB_POOL_MAX || '2' }}
         run: |
           docker run --rm \
+            -e APP_ENV \
+            -e DB_SCHEMA \
             -e DB_HOST \
             -e DB_PORT \
             -e DB_NAME \
@@ -245,11 +262,15 @@ jobs:
 
       - name: Backfill Telegram identity HMAC values
         env:
+          APP_ENV: ${{ vars.APP_ENV || 'production' }}
+          DB_SCHEMA: ${{ vars.DB_SCHEMA || 'public' }}
           DB_SSL: ${{ vars.DB_SSL || 'true' }}
           DB_POOL_MIN: ${{ vars.DB_POOL_MIN || '0' }}
           DB_POOL_MAX: ${{ vars.DB_POOL_MAX || '2' }}
         run: |
           docker run --rm \
+            -e APP_ENV \
+            -e DB_SCHEMA \
             -e DB_HOST \
             -e DB_PORT \
             -e DB_NAME \
@@ -279,6 +300,8 @@ jobs:
           revision-execution-timeout: 10
           revision-network-id: ${{ vars.YC_NETWORK_ID }}
           revision-env: |
+            APP_ENV=${{ vars.APP_ENV || 'production' }}
+            DB_SCHEMA=${{ vars.DB_SCHEMA || 'public' }}
             API_HOST=0.0.0.0
             DB_SSL=${{ vars.DB_SSL || 'true' }}
             DB_POOL_MIN=${{ vars.DB_POOL_MIN || '0' }}
@@ -307,6 +330,8 @@ jobs:
           YC_BOT_VM_DISK_TYPE: ${{ vars.YC_BOT_VM_DISK_TYPE || 'network-hdd' }}
           YC_BOT_VM_PLATFORM: ${{ vars.YC_BOT_VM_PLATFORM || 'standard-v3' }}
           YC_BOT_VM_PUBLIC_NAT: ${{ vars.YC_BOT_VM_PUBLIC_NAT || 'true' }}
+          APP_ENV: ${{ vars.APP_ENV || 'production' }}
+          DB_SCHEMA: ${{ vars.DB_SCHEMA || 'public' }}
           DB_SSL: ${{ vars.DB_SSL || 'true' }}
           DB_POOL_MIN: ${{ vars.DB_POOL_MIN || '0' }}
           DB_POOL_MAX: ${{ vars.DB_POOL_MAX || '2' }}

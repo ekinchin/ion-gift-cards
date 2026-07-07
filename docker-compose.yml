@@ -22,11 +22,13 @@ services:
       context: .
       target: migrations
     environment:
+      APP_ENV: ${APP_ENV:-local}
       DB_HOST: postgres
       DB_PORT: 5432
       DB_USER: postgres
       DB_PASSWORD: postgres
       DB_NAME: ion_gift_card
+      DB_SCHEMA: ${DB_SCHEMA:-public}
     depends_on:
       postgres:
         condition: service_healthy
@@ -40,11 +42,13 @@ services:
     ports:
       - "3000:3000"
     environment:
+      APP_ENV: ${APP_ENV:-local}
       DB_HOST: postgres
       DB_PORT: 5432
       DB_USER: postgres
       DB_PASSWORD: postgres
       DB_NAME: ion_gift_card
+      DB_SCHEMA: ${DB_SCHEMA:-public}
       API_HOST: "0.0.0.0"
       PORT: 3000
     depends_on:
@@ -58,11 +62,13 @@ services:
       context: .
       target: bot-long-polling
     environment:
+      APP_ENV: ${APP_ENV:-local}
       DB_HOST: postgres
       DB_PORT: 5432
       DB_USER: postgres
       DB_PASSWORD: postgres
       DB_NAME: ion_gift_card
+      DB_SCHEMA: ${DB_SCHEMA:-public}
       TELEGRAM_MODE: polling
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
       WEB_APP_URL: ${WEB_APP_URL:-}
