@@ -193,6 +193,7 @@ export const userCopy = {
       transferTokenExpired: 'Срок действия кода передачи истек',
       transferTokenUsed: 'Код передачи уже использован',
       transferToSameCustomer: 'Карта уже принадлежит вам',
+      featureDisabled: 'Передача карты временно недоступна.',
       receiptAlreadyAttached: 'Этот чек уже был отсканирован и привязан к другой операции',
       invalidReceiptQr: 'Не удалось прочитать QR чека. Отсканируйте фискальный QR с бумажного или электронного чека',
       receiptSkipCommentRequired: 'Для причины "другое" добавьте комментарий после слова "другое"',

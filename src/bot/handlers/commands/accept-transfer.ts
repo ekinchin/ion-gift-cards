@@ -1,9 +1,10 @@
 import type { CommandContext } from 'grammy';
 import { userCopy } from '../../../copy.ts';
-import { cardOwnershipService } from '../../../services/index.ts';
+import { cardOwnershipService, featureFlagService } from '../../../services/index.ts';
 import type { MyContext } from '../../context.ts';
 import { formatBotErrorMessage } from '../../error-copy.ts';
 import { promptOwnershipConfirmation, requirePersonalDataConsent, resolveCurrentCustomer } from '../card-replies.ts';
+import { assertCardTransferEnabled, getCardTransferFeatureActor } from './transfer.ts';
 
 export async function acceptTransferCommandHandler(ctx: CommandContext<MyContext>) {
   ctx.session.action = undefined;
@@ -25,6 +26,10 @@ export async function acceptTransferForCurrentCustomer(ctx: MyContext, token: st
   if (!customer) return;
 
   try {
+    await assertCardTransferEnabled({
+      featureFlags: featureFlagService,
+      actor: await getCardTransferFeatureActor(ctx),
+    });
     const card = await cardOwnershipService.acceptTransfer(customer.id, token);
     await ctx.reply(`${userCopy.bot.operations.accepted}\n${userCopy.bot.cards.card}: ${card.code}\n${userCopy.bot.cards.balance}: ${card.balance} ₽`);
   } catch (error) {
