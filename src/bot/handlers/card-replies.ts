@@ -55,6 +55,17 @@ export async function resolveCurrentCustomer(ctx: MyContext) {
   return customer;
 }
 
+export async function findCurrentCustomer(ctx: MyContext) {
+  const from = ctx.from;
+  if (!from) {
+    await ctx.reply(userCopy.bot.replies.accountUnknown);
+    return null;
+  }
+
+  const existing = await customerRepository.findByTelegramUserIdHash(hashTelegramUserIdForBot(from.id));
+  return existing?.customer ?? null;
+}
+
 export async function requirePersonalDataConsent(
   ctx: MyContext,
   action: PendingConsentAction
@@ -88,8 +99,11 @@ export async function requirePersonalDataConsent(
 }
 
 export async function replyMyCards(ctx: MyContext) {
-  const customer = await resolveCurrentCustomer(ctx);
-  if (!customer) return;
+  const customer = await findCurrentCustomer(ctx);
+  if (!customer) {
+    await ctx.reply(userCopy.bot.replies.noCardsWithHint);
+    return;
+  }
 
   const cards = await cardOwnershipService.listCards(customer.id);
   if (cards.length === 0) {
@@ -102,7 +116,7 @@ export async function replyMyCards(ctx: MyContext) {
 }
 
 export async function getCurrentCustomerMenuOptions(ctx: MyContext): Promise<MainMenuOptions> {
-  const customer = await resolveCurrentCustomer(ctx);
+  const customer = await findCurrentCustomer(ctx);
   if (!customer) {
     return { hasLinkedCard: false };
   }
@@ -112,8 +126,8 @@ export async function getCurrentCustomerMenuOptions(ctx: MyContext): Promise<Mai
 }
 
 export async function replyExistingLinkedCard(ctx: MyContext): Promise<boolean> {
-  const customer = await resolveCurrentCustomer(ctx);
-  if (!customer) return true;
+  const customer = await findCurrentCustomer(ctx);
+  if (!customer) return false;
 
   const cards = await cardOwnershipService.listCards(customer.id);
   const card = cards[0];
@@ -147,8 +161,15 @@ export async function replyOwnedBalance(
   code?: string,
   options: { onNoOwnedCards?: () => Promise<void> } = {}
 ) {
-  const customer = await resolveCurrentCustomer(ctx);
-  if (!customer) return;
+  const customer = await findCurrentCustomer(ctx);
+  if (!customer) {
+    if (!code && options.onNoOwnedCards) {
+      await options.onNoOwnedCards();
+      return;
+    }
+    await ctx.reply(userCopy.bot.replies.noCardsWithHint);
+    return;
+  }
 
   try {
     const { card, balance } = await cardOwnershipService.getOwnedBalance(customer.id, code);
@@ -171,8 +192,15 @@ export async function replyOwnedHistory(
   code?: string,
   options: { onNoOwnedCards?: () => Promise<void> } = {}
 ) {
-  const customer = await resolveCurrentCustomer(ctx);
-  if (!customer) return;
+  const customer = await findCurrentCustomer(ctx);
+  if (!customer) {
+    if (!code && options.onNoOwnedCards) {
+      await options.onNoOwnedCards();
+      return;
+    }
+    await ctx.reply(userCopy.bot.replies.noCardsWithHint);
+    return;
+  }
 
   try {
     const { card, transactions } = await cardOwnershipService.getOwnedHistory(customer.id, code);
@@ -233,8 +261,11 @@ export async function promptOwnershipConfirmation(ctx: MyContext, action: Pendin
 }
 
 export async function unlinkCardFromCurrentCustomer(ctx: MyContext, code: string) {
-  const customer = await resolveCurrentCustomer(ctx);
-  if (!customer) return;
+  const customer = await findCurrentCustomer(ctx);
+  if (!customer) {
+    await ctx.reply(userCopy.bot.replies.noLinkedCard);
+    return;
+  }
 
   try {
     const card = await cardOwnershipService.unlinkCard(customer.id, code);
@@ -262,8 +293,11 @@ export async function promptUnlinkConfirmation(ctx: MyContext, code?: string) {
 }
 
 export async function unlinkCurrentCardFromCurrentCustomer(ctx: MyContext) {
-  const customer = await resolveCurrentCustomer(ctx);
-  if (!customer) return;
+  const customer = await findCurrentCustomer(ctx);
+  if (!customer) {
+    await ctx.reply(userCopy.bot.replies.noLinkedCard);
+    return;
+  }
 
   try {
     const card = await cardOwnershipService.unlinkCurrentCard(customer.id);
@@ -280,9 +314,10 @@ export async function replyHistory(ctx: MyContext, code: string) {
   try {
     const actor = await resolveBotActor(ctx);
     if (!actor.operatorId) {
-      const customer = await resolveCurrentCustomer(ctx);
-      if (!customer) return;
-      actor.customerId = customer.id;
+      const customer = await findCurrentCustomer(ctx);
+      if (customer) {
+        actor.customerId = customer.id;
+      }
     }
 
     const { card, transactions } = await cardOwnershipService.getHistoryByCode(code, actor);

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import type { Card, TransactionWithReceipt } from '../src/types/index.ts';
-import { cardOwnershipService } from '../src/services/index.ts';
+import { cardOwnershipService, customerRepository } from '../src/services/index.ts';
 import { replyOwnedHistory } from '../src/bot/handlers/card-replies.ts';
 
 const now = new Date('2026-06-29T12:00:00.000Z');
@@ -39,9 +39,9 @@ function patchMethod<T extends object, K extends keyof T>(target: T, key: K, rep
 
 test('replyOwnedHistory shows receipt status and link without operator-only skip reason', async () => {
   const ctx = makeContext();
-  const restoreResolve = patchMethod(cardOwnershipService, 'resolveCustomer', async () => ({
-    customer: { id: 'customer-1' },
-    identity: {},
+  const restoreLookup = patchMethod(customerRepository, 'findByTelegramUserIdHash', async () => ({
+    customer: { id: 'customer-1', created_at: now },
+    identity: {} as never,
   }));
   const restoreHistory = patchMethod(cardOwnershipService, 'getOwnedHistory', async () => ({
     card: makeCard(),
@@ -106,6 +106,6 @@ test('replyOwnedHistory shows receipt status and link without operator-only skip
     assert.doesNotMatch(ctx.replies[0]!.text, /technical_error|internal note/);
   } finally {
     restoreHistory();
-    restoreResolve();
+    restoreLookup();
   }
 });

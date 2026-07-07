@@ -7,7 +7,7 @@ import { cardOwnershipService, featureFlagService } from '../../../services/inde
 import type { MyContext } from '../../context.ts';
 import { formatBotErrorMessage } from '../../error-copy.ts';
 import { hashTelegramUserIdForBot } from '../../telegram-identity.ts';
-import { promptOwnershipConfirmation, resolveCurrentCustomer } from '../card-replies.ts';
+import { findCurrentCustomer, promptOwnershipConfirmation } from '../card-replies.ts';
 import { getOperator } from '../operators.ts';
 
 export async function assertCardTransferEnabled(options: {
@@ -33,8 +33,11 @@ export async function getCardTransferFeatureActor(ctx: MyContext): Promise<Featu
 
 export async function transferCommandHandler(ctx: CommandContext<MyContext>) {
   ctx.session.action = undefined;
-  const customer = await resolveCurrentCustomer(ctx);
-  if (!customer) return;
+  const customer = await findCurrentCustomer(ctx);
+  if (!customer) {
+    await ctx.reply(userCopy.bot.replies.noLinkedCard);
+    return;
+  }
 
   let code = ctx.match?.trim();
   if (!code) {
@@ -51,8 +54,11 @@ export async function transferCommandHandler(ctx: CommandContext<MyContext>) {
 }
 
 export async function startTransferForCurrentCustomer(ctx: MyContext, code: string) {
-  const customer = await resolveCurrentCustomer(ctx);
-  if (!customer) return;
+  const customer = await findCurrentCustomer(ctx);
+  if (!customer) {
+    await ctx.reply(userCopy.bot.replies.noLinkedCard);
+    return;
+  }
 
   try {
     await assertCardTransferEnabled({

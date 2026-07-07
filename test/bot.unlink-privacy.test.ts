@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { unlinkCommandHandler } from '../src/bot/handlers/commands/unlink.ts';
 import { createTextMessageHandler } from '../src/bot/handlers/messages/text.ts';
-import { cardOwnershipService, operatorRepository } from '../src/services/index.ts';
+import { cardOwnershipService, customerRepository, operatorRepository } from '../src/services/index.ts';
 import { userCopy } from '../src/copy.ts';
 import type { Card } from '../src/types/index.ts';
 import { menuButtonLabels } from '../src/bot/menu.ts';
@@ -95,9 +95,9 @@ test('cancelling unlink keeps pending data untouched by the use case', async () 
 test('confirming unlink performs unlink and returns QR recovery data', async () => {
   const ctx = makeContext(userCopy.bot.unlinkPrivacy.confirmButton);
   ctx.session.pendingUnlinkConfirmation = {};
-  const restoreResolve = patchMethod(cardOwnershipService, 'resolveCustomer', async () => ({
-    customer: { id: 'customer-1' },
-    identity: {},
+  const restoreLookup = patchMethod(customerRepository, 'findByTelegramUserIdHash', async () => ({
+    customer: { id: 'customer-1', created_at: new Date('2026-07-05T00:00:00.000Z') },
+    identity: {} as never,
   }));
   const restoreUnlink = patchMethod(cardOwnershipService, 'unlinkCurrentCard', async () => makeCard());
   const restoreOperator = patchMethod(operatorRepository, 'findByTelegramUserIdHash', async () => null);
@@ -126,6 +126,6 @@ test('confirming unlink performs unlink and returns QR recovery data', async () 
   } finally {
     restoreOperator();
     restoreUnlink();
-    restoreResolve();
+    restoreLookup();
   }
 });

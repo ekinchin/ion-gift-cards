@@ -113,10 +113,14 @@ test('/link with code asks for consent before linking a card', async () => {
 
 test('reply keyboard link asks for consent before QR/manual link starts', async () => {
   const ctx = makeContext();
-  const restoreResolve = patchMethod(cardOwnershipService, 'resolveCustomer', async () => ({
-    customer: { id: 'customer-1' },
-    identity: {},
-  }));
+  let resolved = false;
+  const restoreResolve = patchMethod(cardOwnershipService, 'resolveCustomer', async () => {
+    resolved = true;
+    return {
+      customer: { id: 'customer-1' },
+      identity: {},
+    };
+  });
   const restoreList = patchMethod(cardOwnershipService, 'listCards', async () => []);
   const restoreLookup = patchMethod(customerRepository, 'findByTelegramUserIdHash', async () => null);
 
@@ -124,6 +128,7 @@ test('reply keyboard link asks for consent before QR/manual link starts', async 
     const handled = await handleMenuButton(ctx as never, '🔗 Привязать карту', telegramConfig);
 
     assert.equal(handled, true);
+    assert.equal(resolved, false);
     assert.equal(ctx.session.action, undefined);
     assert.deepEqual(ctx.session.pendingConsentAction, { action: 'linkCard' });
     assert.match(ctx.replies[0]!.text, /хранит и обрабатывает данные/);
@@ -229,9 +234,9 @@ test('/accept_transfer with active consent asks for explicit accept confirmation
 test('/transfer asks for explicit transfer confirmation before creating token', async () => {
   const ctx = { ...makeContext(), match: 'ION-CONSENT01' };
   let transferStarted = false;
-  const restoreResolve = patchMethod(cardOwnershipService, 'resolveCustomer', async () => ({
+  const restoreLookup = patchMethod(customerRepository, 'findByTelegramUserIdHash', async () => ({
     customer: { id: 'customer-1' },
-    identity: {},
+    identity: {} as never,
   }));
   const restoreStart = patchMethod(cardOwnershipService, 'startTransfer', async () => {
     transferStarted = true;
@@ -249,7 +254,7 @@ test('/transfer asks for explicit transfer confirmation before creating token', 
     });
   } finally {
     restoreStart();
-    restoreResolve();
+    restoreLookup();
   }
 });
 

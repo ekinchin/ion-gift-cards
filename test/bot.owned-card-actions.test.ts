@@ -63,13 +63,17 @@ function patchMethod<T extends object, K extends keyof T>(target: T, key: K, rep
   };
 }
 
+function makeResolvedCustomer() {
+  return {
+    customer: { id: 'customer-1', created_at: now },
+    identity: {} as never,
+  };
+}
+
 test('menu balance shows the linked card without prompting for QR', async () => {
   const card = makeCard();
   const ctx = makeContext();
-  const restoreResolve = patchMethod(cardOwnershipService, 'resolveCustomer', async () => ({
-    customer: { id: 'customer-1' },
-    identity: {},
-  }));
+  const restoreLookup = patchMethod(customerRepository, 'findByTelegramUserIdHash', async () => makeResolvedCustomer());
   const restoreBalance = patchMethod(cardOwnershipService, 'getOwnedBalance', async () => ({
     card,
     balance: Number(card.balance),
@@ -85,17 +89,14 @@ test('menu balance shows the linked card without prompting for QR', async () => 
     assert.match(ctx.photos[0]!.caption!, /500/);
   } finally {
     restoreBalance();
-    restoreResolve();
+    restoreLookup();
   }
 });
 
 test('menu history shows the linked card history without prompting for QR', async () => {
   const card = makeCard();
   const ctx = makeContext();
-  const restoreResolve = patchMethod(cardOwnershipService, 'resolveCustomer', async () => ({
-    customer: { id: 'customer-1' },
-    identity: {},
-  }));
+  const restoreLookup = patchMethod(customerRepository, 'findByTelegramUserIdHash', async () => makeResolvedCustomer());
   const restoreHistory = patchMethod(cardOwnershipService, 'getOwnedHistory', async () => ({
     card,
     transactions: [makeTransaction()],
@@ -111,17 +112,14 @@ test('menu history shows the linked card history without prompting for QR', asyn
     assert.match(ctx.replies[0]!.text, /ION-TESTCARD01/);
   } finally {
     restoreHistory();
-    restoreResolve();
+    restoreLookup();
   }
 });
 
 test('menu balance prompts to scan a card when there is no linked card', async () => {
   const ctx = makeContext();
   const restoreOperator = patchMethod(operatorRepository, 'findByTelegramUserIdHash', async () => null);
-  const restoreResolve = patchMethod(cardOwnershipService, 'resolveCustomer', async () => ({
-    customer: { id: 'customer-1' },
-    identity: {},
-  }));
+  const restoreLookup = patchMethod(customerRepository, 'findByTelegramUserIdHash', async () => makeResolvedCustomer());
   const restoreBalance = patchMethod(cardOwnershipService, 'getOwnedBalance', async () => {
     throw new NoOwnedCardsError();
   });
@@ -150,7 +148,7 @@ test('menu balance prompts to scan a card when there is no linked card', async (
     assert.equal(replyMarkup.one_time_keyboard, true);
   } finally {
     restoreBalance();
-    restoreResolve();
+    restoreLookup();
     restoreOperator();
   }
 });
@@ -158,10 +156,7 @@ test('menu balance prompts to scan a card when there is no linked card', async (
 test('menu history prompts to scan a card when there is no linked card', async () => {
   const ctx = makeContext();
   const restoreOperator = patchMethod(operatorRepository, 'findByTelegramUserIdHash', async () => null);
-  const restoreResolve = patchMethod(cardOwnershipService, 'resolveCustomer', async () => ({
-    customer: { id: 'customer-1' },
-    identity: {},
-  }));
+  const restoreLookup = patchMethod(customerRepository, 'findByTelegramUserIdHash', async () => makeResolvedCustomer());
   const restoreHistory = patchMethod(cardOwnershipService, 'getOwnedHistory', async () => {
     throw new NoOwnedCardsError();
   });
@@ -190,7 +185,7 @@ test('menu history prompts to scan a card when there is no linked card', async (
     assert.equal(replyMarkup.one_time_keyboard, true);
   } finally {
     restoreHistory();
-    restoreResolve();
+    restoreLookup();
     restoreOperator();
   }
 });
@@ -198,10 +193,7 @@ test('menu history prompts to scan a card when there is no linked card', async (
 test('start menu for customer without a card shows create and link but hides unlink', async () => {
   const ctx = makeContext();
   const restoreOperator = patchMethod(operatorRepository, 'findByTelegramUserIdHash', async () => null);
-  const restoreResolve = patchMethod(cardOwnershipService, 'resolveCustomer', async () => ({
-    customer: { id: 'customer-1' },
-    identity: {},
-  }));
+  const restoreLookup = patchMethod(customerRepository, 'findByTelegramUserIdHash', async () => makeResolvedCustomer());
   const restoreList = patchMethod(cardOwnershipService, 'listCards', async () => []);
 
   try {
@@ -219,7 +211,7 @@ test('start menu for customer without a card shows create and link but hides unl
     ]);
   } finally {
     restoreList();
-    restoreResolve();
+    restoreLookup();
     restoreOperator();
   }
 });
@@ -227,10 +219,7 @@ test('start menu for customer without a card shows create and link but hides unl
 test('start menu for customer with a card shows unlink but hides create and link', async () => {
   const ctx = makeContext();
   const restoreOperator = patchMethod(operatorRepository, 'findByTelegramUserIdHash', async () => null);
-  const restoreResolve = patchMethod(cardOwnershipService, 'resolveCustomer', async () => ({
-    customer: { id: 'customer-1' },
-    identity: {},
-  }));
+  const restoreLookup = patchMethod(customerRepository, 'findByTelegramUserIdHash', async () => makeResolvedCustomer());
   const restoreList = patchMethod(cardOwnershipService, 'listCards', async () => [makeCard()]);
 
   try {
@@ -247,7 +236,7 @@ test('start menu for customer with a card shows unlink but hides create and link
     ]);
   } finally {
     restoreList();
-    restoreResolve();
+    restoreLookup();
     restoreOperator();
   }
 });
@@ -278,10 +267,7 @@ test('manual code after history scan prompt shows authorized public history', as
   const ctx = makeContext();
   ctx.session.action = 'history';
   const restoreOperator = patchMethod(operatorRepository, 'findByTelegramUserIdHash', async () => null);
-  const restoreResolve = patchMethod(cardOwnershipService, 'resolveCustomer', async () => ({
-    customer: { id: 'customer-1' },
-    identity: {},
-  }));
+  const restoreLookup = patchMethod(customerRepository, 'findByTelegramUserIdHash', async () => makeResolvedCustomer());
   const restoreHistory = patchMethod(cardOwnershipService, 'getHistoryByCode', async () => ({
     card,
     transactions: [makeTransaction({ card_id: card.id })],
@@ -297,7 +283,7 @@ test('manual code after history scan prompt shows authorized public history', as
     assert.match(ctx.replies[0]!.text, /ION-HISTORY01/);
   } finally {
     restoreHistory();
-    restoreResolve();
+    restoreLookup();
     restoreOperator();
   }
 });
@@ -321,10 +307,7 @@ test('operator menu actions require operator access before prompting for amount'
 test('link command without a code shows the existing card instead of a scan prompt', async () => {
   const card = makeCard();
   const ctx = makeContext();
-  const restoreResolve = patchMethod(cardOwnershipService, 'resolveCustomer', async () => ({
-    customer: { id: 'customer-1' },
-    identity: {},
-  }));
+  const restoreLookup = patchMethod(customerRepository, 'findByTelegramUserIdHash', async () => makeResolvedCustomer());
   const restoreList = patchMethod(cardOwnershipService, 'listCards', async () => [card]);
   const handler = createLinkCommandHandler(telegramConfig);
 
@@ -337,7 +320,7 @@ test('link command without a code shows the existing card instead of a scan prom
     assert.match(ctx.photos[0]!.caption!, /ION-TESTCARD01/);
   } finally {
     restoreList();
-    restoreResolve();
+    restoreLookup();
   }
 });
 
