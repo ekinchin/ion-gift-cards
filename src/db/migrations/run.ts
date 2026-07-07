@@ -1,4 +1,5 @@
 import type { Knex } from 'knex';
+import { ConfigurationService } from '../../configuration/configuration-service.ts';
 import { db as knexDb } from '../knex.ts';
 import { readFileSync, readdirSync } from 'fs';
 import { join, dirname } from 'path';
@@ -96,12 +97,26 @@ COMMENT ON COLUMN schema_migrations.applied_at IS 'Дата и время усп
 `);
 }
 
-export async function migrate(options: { db?: MigrationDb; migrationsDir?: string } = {}): Promise<MigrationResult[]> {
+function quoteIdentifier(identifier: string): string {
+  return `"${identifier.replaceAll('"', '""')}"`;
+}
+
+async function ensureApplicationSchema(db: MigrationDb, schema: string) {
+  await db.raw(`CREATE SCHEMA IF NOT EXISTS ${quoteIdentifier(schema)};`);
+}
+
+export async function migrate(options: {
+  db?: MigrationDb;
+  migrationsDir?: string;
+  schema?: string;
+} = {}): Promise<MigrationResult[]> {
   const migrationDb = options.db ?? new KnexMigrationDb(knexDb);
   const migrationsDir = options.migrationsDir ?? __dirname;
+  const schema = options.schema ?? ConfigurationService.fromEnv().getDatabaseConfig().schema;
   const migrations = getMigrationFiles(migrationsDir);
   const result: MigrationResult[] = [];
 
+  await ensureApplicationSchema(migrationDb, schema);
   await ensureMigrationHistoryTable(migrationDb);
 
   const appliedVersions = new Set(await migrationDb.getAppliedMigrationVersions());

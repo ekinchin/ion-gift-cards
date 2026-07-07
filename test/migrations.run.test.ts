@@ -51,15 +51,16 @@ test('migrate applies only unapplied SQL files and records their versions', asyn
   });
   const fakeDb = new FakeMigrationDb(['001']);
 
-  const result = await migrate({ db: fakeDb, migrationsDir });
+  const result = await migrate({ db: fakeDb, migrationsDir, schema: 'test' });
 
   assert.deepEqual(result, [
     { filename: '001_initial.sql', status: 'skipped' },
     { filename: '002_card_owner_unlink.sql', status: 'applied' },
     { filename: '003_one_card_per_customer.sql', status: 'applied' },
   ]);
-  assert.match(fakeDb.executedSql[0], /CREATE TABLE IF NOT EXISTS schema_migrations/);
-  assert.deepEqual(fakeDb.executedSql.slice(1), [
+  assert.match(fakeDb.executedSql[0], /CREATE SCHEMA IF NOT EXISTS "test"/);
+  assert.match(fakeDb.executedSql[1], /CREATE TABLE IF NOT EXISTS schema_migrations/);
+  assert.deepEqual(fakeDb.executedSql.slice(2), [
     'ALTER TABLE card_owner_transfers ALTER COLUMN to_customer_id DROP NOT NULL;',
     'CREATE UNIQUE INDEX card_owners_one_card_per_customer ON card_owners (customer_id);',
   ]);
