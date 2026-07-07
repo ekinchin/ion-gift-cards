@@ -299,3 +299,61 @@ Then send `/start` to the bot in Telegram.
 - Move migrations into Yandex Cloud/VPC so GitHub runners do not connect to the database directly.
 - Restrict federation conditions to this repository and release tag refs.
 - Pin third-party actions/images by digest where supply-chain risk matters.
+
+## Local Test Environment
+
+Test is a local-only environment. It does not use Yandex Lockbox, Yandex runtime resources, or the production/preprod Telegram bot token. Create a dedicated Telegram bot through BotFather and put its token into local `.env.test`.
+
+The local test stack uses Docker Compose and a PostgreSQL container:
+
+```bash
+cp .env.test.example .env.test
+docker compose --env-file .env.test -f docker-compose.yml -f docker-compose.test.yml up -d postgres migrations api bot
+```
+
+Defaults:
+
+```text
+APP_ENV=test
+DB_NAME=ion_gift_card_test
+DB_SCHEMA=test
+POSTGRES host port=5433
+```
+
+Use this environment for manual Telegram testing and local smoke checks before deploying to preprod.
+
+## Preprod Environment
+
+Preprod is deployed in Yandex Cloud. It uses separate runtime resources: Lockbox secret, Telegram bot token, API Serverless Container, polling bot VM, and QR Mini App Object Storage bucket. It shares the production PostgreSQL cluster only at the cluster level and uses a separate PostgreSQL database. Production uses `DB_NAME=ion_gift_card`; preprod uses `DB_NAME=ion_gift_card_preprod`. Both use `DB_SCHEMA=public`.
+
+Before first preprod deploy, create the database in the existing cluster if that does not add separate billing:
+
+```sql
+CREATE DATABASE ion_gift_card_preprod;
+```
+
+GitHub environment `preprod` must define the same variables as `production`, but point to preprod runtime resources and set:
+
+```text
+APP_ENV=preprod
+DB_SCHEMA=public
+```
+
+The preprod Lockbox secret must point to the preprod database:
+
+```text
+DB_NAME=ion_gift_card_preprod
+```
+
+If an extra database inside the existing Managed PostgreSQL cluster becomes separately billed, use the fallback model: `DB_NAME=ion_gift_card` and `DB_SCHEMA=preprod`.
+
+## Feature Toggle Rollout
+
+Feature flags live in `feature_flags`. Rollout order:
+
+1. `off`
+2. `allowlist`
+3. `operators`
+4. `all`
+
+Allowlist values are Telegram user HMAC values, not raw Telegram ids. Use `off` as the production kill switch.

@@ -44,3 +44,11 @@ Application use cases должны работать с `customer.id`. Telegram-�
 Подробный принятый дизайн задокументирован в `docs/superpowers/specs/2026-06-25-card-ownership-transfer-design.md`.
 
 Текущие команды Telegram-бота, reply-клавиатуры, условия показа кнопок и ограничения операторских сценариев описаны в `docs/telegram-bot-ru.md`.
+
+## Окружения и feature toggles
+
+Test - локальное окружение: Docker Compose поднимает PostgreSQL в контейнере, приложение берет секреты из `.env.test`, Telegram работает через отдельный test bot token, Lockbox и Yandex Cloud runtime ресурсы не используются. Для локальной изоляции test использует `DB_NAME=ion_gift_card_test` и `DB_SCHEMA=test`.
+
+Preprod - отдельное окружение в Yandex Cloud. Production и preprod используют один PostgreSQL cluster, но разные databases: production `ion_gift_card`, preprod `ion_gift_card_preprod`. Это снижает риск ошибки `search_path` между production и preprod, сохраняя общий cluster. Если отдельная database внутри cluster начнет тарифицироваться отдельно, fallback - общая database и отдельная schema `preprod`.
+
+Feature toggles применяются на границах адаптеров и application use case-ов. Telegram rollout не хранит raw Telegram id в allowlist: для таргетинга используется HMAC lookup.
