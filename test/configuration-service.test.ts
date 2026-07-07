@@ -19,12 +19,49 @@ test('configuration service groups API and database defaults', () => {
     user: 'postgres',
     password: 'postgres',
     name: 'ion_gift_card',
+    schema: 'public',
     ssl: false,
     pool: {
       min: 0,
       max: 2,
     },
   });
+});
+
+test('configuration service reads database schema and app environment', () => {
+  const service = ConfigurationService.fromEnv({
+    TELEGRAM_MODE: 'polling',
+    TELEGRAM_BOT_TOKEN: 'test-token',
+    TELEGRAM_ID_HMAC_SECRET: '12345678901234567890123456789012',
+    DB_SCHEMA: 'test',
+    APP_ENV: 'test',
+  });
+
+  assert.equal(service.getDatabaseConfig().schema, 'test');
+  assert.equal(service.getConfig().appEnv, 'test');
+});
+
+test('configuration service uses safe environment defaults', () => {
+  const service = ConfigurationService.fromEnv({
+    TELEGRAM_MODE: 'polling',
+    TELEGRAM_BOT_TOKEN: 'test-token',
+    TELEGRAM_ID_HMAC_SECRET: '12345678901234567890123456789012',
+  });
+
+  assert.equal(service.getDatabaseConfig().schema, 'public');
+  assert.equal(service.getConfig().appEnv, 'local');
+});
+
+test('configuration service rejects invalid database schema names', () => {
+  assert.throws(
+    () => ConfigurationService.fromEnv({
+      TELEGRAM_MODE: 'polling',
+      TELEGRAM_BOT_TOKEN: 'test-token',
+      TELEGRAM_ID_HMAC_SECRET: '12345678901234567890123456789012',
+      DB_SCHEMA: 'bad-schema',
+    }).getDatabaseConfig(),
+    /DB_SCHEMA/
+  );
 });
 
 test('configuration service reads database SSL flag', () => {

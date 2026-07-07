@@ -21,6 +21,17 @@ const booleanStringSchema = z.preprocess(
   z.enum(['true', 'false'])
     .transform((value) => value === 'true')
 );
+const identifierSchema = z.preprocess(
+  (value) => value === '' || value === undefined ? 'public' : value,
+  z.string().regex(
+    /^[a-z][a-z0-9_]*$/,
+    'Must be a PostgreSQL identifier: lowercase letters, digits, and underscores'
+  )
+);
+const appEnvSchema = z.preprocess(
+  (value) => value === '' || value === undefined ? 'local' : value,
+  z.enum(['local', 'test', 'preprod', 'production'])
+);
 const receiptModeSchema = z.preprocess(
   (value) => value === '' || value === undefined ? 'soft' : value,
   z.enum(['soft', 'required'])
@@ -42,6 +53,7 @@ const receiptAllowedInnsSchema = z.preprocess(
 const positiveIntegerSchema = z.coerce.number().int().min(1);
 
 export const configurationSchema = z.object({
+  appEnv: appEnvSchema,
   api: z.object({
     host: requiredString.default('0.0.0.0'),
     port: portSchema.default(3000),
@@ -52,6 +64,7 @@ export const configurationSchema = z.object({
     user: requiredString.default('postgres'),
     password: requiredString.default('postgres'),
     name: requiredString.default('ion_gift_card'),
+    schema: identifierSchema,
     ssl: booleanStringSchema,
     pool: z.object({
       min: poolSizeSchema.default(0),
@@ -99,6 +112,7 @@ export type ReceiptConfig = AppConfig['receipt'];
 type Env = NodeJS.ProcessEnv;
 
 const envNamesByPath = new Map<string, string>([
+  ['appEnv', 'APP_ENV'],
   ['api.host', 'API_HOST'],
   ['api.port', 'PORT'],
   ['database.host', 'DB_HOST'],
@@ -106,6 +120,7 @@ const envNamesByPath = new Map<string, string>([
   ['database.user', 'DB_USER'],
   ['database.password', 'DB_PASSWORD'],
   ['database.name', 'DB_NAME'],
+  ['database.schema', 'DB_SCHEMA'],
   ['database.ssl', 'DB_SSL'],
   ['database.pool.min', 'DB_POOL_MIN'],
   ['database.pool.max', 'DB_POOL_MAX'],
@@ -154,6 +169,7 @@ function buildDatabaseConfig(env: Env): unknown {
     user: env.DB_USER,
     password: env.DB_PASSWORD,
     name: env.DB_NAME,
+    schema: env.DB_SCHEMA,
     ssl: env.DB_SSL,
     pool: {
       min: env.DB_POOL_MIN,
@@ -195,6 +211,7 @@ export class ConfigurationService {
 
   getConfig(): AppConfig {
     return parseConfig(configurationSchema, {
+      appEnv: this.env.APP_ENV,
       api: buildApiConfig(this.env),
       database: buildDatabaseConfig(this.env),
       telegram: buildTelegramConfig(this.env),
