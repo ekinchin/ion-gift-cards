@@ -134,3 +134,22 @@ test('customer Telegram privacy cleanup migration drops raw provider user id', a
   assert.match(privacyCleanupSql, /DROP COLUMN IF EXISTS provider_user_id/i);
   assert.doesNotMatch(privacyCleanupSql, /operators\s+.*DROP COLUMN/i);
 });
+
+test('feature flags migration follows Telegram privacy cleanup migration', async () => {
+  const migrationsDir = join(import.meta.dirname, '..', 'src', 'db', 'migrations');
+  const migrationFiles = readdirSync(migrationsDir)
+    .filter((file) => file.endsWith('.sql'))
+    .sort();
+
+  assert.equal(
+    migrationFiles.indexOf('007_feature_flags.sql'),
+    migrationFiles.indexOf('006_drop_customer_identity_provider_user_id.sql') + 1
+  );
+
+  const sql = readFileSync(join(migrationsDir, '007_feature_flags.sql'), 'utf8');
+
+  assert.match(sql, /CREATE TABLE IF NOT EXISTS feature_flags/i);
+  assert.match(sql, /audience TEXT NOT NULL/i);
+  assert.match(sql, /allowlist JSONB NOT NULL/i);
+  assert.match(sql, /CHECK \(audience IN \('off', 'allowlist', 'operators', 'all'\)\)/i);
+});
