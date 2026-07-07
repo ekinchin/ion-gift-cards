@@ -1,6 +1,7 @@
 import { db } from '../../src/db/knex.ts';
 
 export async function resetDatabase() {
+  await db('feature_flags').delete();
   await db('transaction_receipts').delete();
   await db('transactions').delete();
   await db('card_owner_transfers').delete();

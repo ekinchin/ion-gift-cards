@@ -4,9 +4,11 @@ import { OperatorRepository } from '../repositories/operator.repository.ts';
 import { CustomerRepository } from '../repositories/customer.repository.ts';
 import { CardOwnershipRepository } from '../repositories/card-ownership.repository.ts';
 import { TransactionReceiptRepository } from '../repositories/transaction-receipt.repository.ts';
+import { FeatureFlagRepository } from '../repositories/feature-flag.repository.ts';
 import { CardUseCases } from '../application/card.use-cases.ts';
 import { CardOwnershipUseCases } from '../application/card-ownership.use-cases.ts';
 import { TransactionReceiptUseCases } from '../application/transaction-receipt.use-cases.ts';
+import { FeatureFlagService } from '../application/feature-flag.service.ts';
 import { ConfigurationService } from '../configuration/configuration-service.ts';
 
 // Repositories
@@ -16,6 +18,7 @@ export const operatorRepository = new OperatorRepository();
 export const customerRepository = new CustomerRepository();
 export const cardOwnershipRepository = new CardOwnershipRepository();
 export const transactionReceiptRepository = new TransactionReceiptRepository();
+export const featureFlagRepository = new FeatureFlagRepository();
 
 // Services
 const receiptConfig = ConfigurationService.fromEnv().getReceiptConfig();
@@ -36,3 +39,4 @@ export const transactionReceiptService = new TransactionReceiptUseCases(
   transactionReceiptRepository,
   receiptConfig
 );
+export const featureFlagService = new FeatureFlagService(featureFlagRepository);
