@@ -9,6 +9,7 @@ test('Knex config is created from typed database configuration', () => {
     user: 'app',
     password: 'secret',
     name: 'gift_cards',
+    schema: 'public',
     ssl: false,
     pool: {
       min: 1,
@@ -26,6 +27,7 @@ test('Knex config is created from typed database configuration', () => {
       keepAliveInitialDelayMillis: 1000,
       connectionTimeoutMillis: 5000,
     },
+    searchPath: ['public'],
     pool: {
       min: 1,
       max: 6,
@@ -46,6 +48,7 @@ test('Knex config passes SSL settings to PostgreSQL connection', () => {
     user: 'app',
     password: 'secret',
     name: 'gift_cards',
+    schema: 'public',
     ssl: true,
     pool: {
       min: 0,
@@ -64,4 +67,22 @@ test('Knex config passes SSL settings to PostgreSQL connection', () => {
       rejectUnauthorized: false,
     },
   });
+});
+
+test('Knex config sets PostgreSQL search path for schema-isolated environments', () => {
+  const config = createKnexConfig({
+    host: 'db.internal',
+    port: 5432,
+    user: 'app',
+    password: 'secret',
+    name: 'gift_cards',
+    schema: 'test',
+    ssl: false,
+    pool: {
+      min: 0,
+      max: 2,
+    },
+  });
+
+  assert.deepEqual(config.searchPath, ['test']);
 });

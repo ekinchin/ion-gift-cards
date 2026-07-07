@@ -22,6 +22,7 @@ export function createKnexConfig(databaseConfig: DatabaseConfig): Knex.Config {
   return {
     client: 'pg',
     connection,
+    searchPath: [databaseConfig.schema],
     pool: {
       ...databaseConfig.pool,
       idleTimeoutMillis: 5000,
