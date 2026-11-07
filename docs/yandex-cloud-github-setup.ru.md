@@ -1,4 +1,8 @@
-# Настройка Yandex Cloud и GitHub Actions
+# Настройка Yandex Cloud и GitHub Actions (архив)
+
+> Деплой `ion-gift-card` в Yandex Cloud выведен из эксплуатации 7 ноября 2026 года.
+> Workflow деплоя и скрипт создания VM удалены. Ниже сохранена историческая инструкция;
+> выполнять её для текущего проекта не требуется.
 
 Эта инструкция описывает ручную подготовку Yandex Cloud под текущий workflow `.github/workflows/release-polling-vm.yml`.
 

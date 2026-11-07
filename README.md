@@ -91,10 +91,10 @@ npm run dev
 npm run bot
 ```
 
-Для QR-сканера Telegram Mini App укажите публичный HTTPS URL страницы. В production страница публикуется как статический `qr.html` в Yandex Object Storage, чтобы клиент Telegram не зависел от доступности Serverless Container из сети пользователя:
+Для QR-сканера Telegram Mini App укажите публичный HTTPS URL страницы `/qr` вашего API или отдельно размещённого статического `qr.html`:
 
 ```bash
-WEB_APP_URL=https://storage.yandexcloud.net/<bucket>/qr.html npm run bot
+WEB_APP_URL=https://<your-host>/qr npm run bot
 ```
 
 Без `WEB_APP_URL` бот продолжит работать без кнопки сканирования.
@@ -208,7 +208,7 @@ npm audit --omit=dev
 
 ## Production deployment
 
-Production deployment to Yandex Cloud is described in [docs/deployment-yandex-cloud.md](docs/deployment-yandex-cloud.md). Releases are tag-based and run through GitHub Actions.
+Деплой этого проекта в Yandex Cloud выведен из эксплуатации. GitHub Actions для деплоя и скрипт создания VM удалены; push тега больше не запускает деплой. См. [статус прежней инфраструктуры](docs/deployment-yandex-cloud.md). Локальный запуск через Docker Compose сохранён.
 
 ## Добавление оператора
 

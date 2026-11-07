@@ -1,4 +1,8 @@
-# Yandex Cloud Deployment
+# Yandex Cloud Deployment (retired)
+
+> Деплой `ion-gift-card` в Yandex Cloud выведен из эксплуатации 7 ноября 2026 года.
+> Workflow `release.yml`, `release-polling-vm.yml` и скрипт создания VM удалены.
+> Инструкция ниже сохранена как история прежней инфраструктуры и не описывает действующий деплой.
 
 Production runs the API as a Yandex Serverless Container and the Telegram bot as a long-polling container on a Yandex Compute Cloud VM created with Container Solution. Release images are stored in Yandex Container Registry, PostgreSQL runs in Yandex Managed Service for PostgreSQL, and application secrets are stored in Yandex Lockbox.
 
