@@ -4,6 +4,41 @@
 > Workflow `release.yml`, `release-polling-vm.yml` и скрипт создания VM удалены.
 > Инструкция ниже сохранена как история прежней инфраструктуры и не описывает действующий деплой.
 
+## Результат очистки 7 ноября 2026 года
+
+Очистка ограничена репозиторием `ekinchin/ion-gift-cards` и его ресурсами в каталоге
+`b1go665h216k0jab3eh2`. Общий каталог и облако сохранены.
+
+Удалены:
+
+- Оба workflow деплоя и скрипт создания polling VM.
+- Окружения GitHub `production` и `preprod` со всеми 30 переменными. Секретов GitHub,
+  артефактов Actions и кэшей на момент проверки не было.
+- Registry `crpn187h017ln92d2iav` и все 181 Docker image проекта.
+- Два бакета QR Mini App, включая их содержимое.
+- Оба Lockbox-секрета production/preprod с отключением защиты от удаления.
+- Сеть `ion-gift-card-net`, её подсеть, таблица маршрутизации, NAT gateway и default security group.
+- Сервисные аккаунты `ion-gift-card-ci` и `ion-gift-card-runtime`, две OIDC-привязки,
+  федерация `github-actions-ion-gift-card` и 15 назначений ролей на каталог.
+
+Повторная инвентаризация подтвердила отсутствие перечисленных ресурсов. VM, дисков,
+снимков, Serverless Containers и работающего PostgreSQL-кластера уже не было перед очисткой.
+Бакеты, сервисные аккаунты, DNS-зона, сертификаты и default network других проектов сохранены.
+
+Остатки и ограничения проверки:
+
+- PostgreSQL `ion-gift-card-pg` (`c9qhuqp694h30m56bkr8`) удалён 3 ноября 2026 года.
+  Остались 10 автоматических резервных копий. В настройках кластера был срок хранения
+  семь дней; ожидаемое окончание хранения — 10 ноября. После удаления кластера
+  [Yandex хранит копии бесплатно и удаляет автоматически](https://yandex.cloud/ru/docs/managed-postgresql/concepts/backup).
+  Вручную удалить их нельзя.
+- Проверить и удалить исторические лог-группы не удалось: CLI Cloud Logging возвращает
+  `Unavailable`, REST API — HTTP 503. Веб-интерфейс Monium требует отдельного входа.
+  [Yandex сообщает о недоступности старого API](https://yandex.cloud/en/docs/logging/migration-to-monium).
+  Общий Monium-проект каталога не удалялся, поскольку каталог используют другие сервисы.
+
+## Архив прежнего деплоя
+
 Production runs the API as a Yandex Serverless Container and the Telegram bot as a long-polling container on a Yandex Compute Cloud VM created with Container Solution. Release images are stored in Yandex Container Registry, PostgreSQL runs in Yandex Managed Service for PostgreSQL, and application secrets are stored in Yandex Lockbox.
 
 This document reflects the current `.github/workflows/release-polling-vm.yml`. The old webhook workflow remains in `.github/workflows/release.yml`, but it is disabled for automatic tag releases and can only be started manually with `workflow_dispatch`.
